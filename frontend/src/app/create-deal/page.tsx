@@ -2,6 +2,23 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 
+async function copyText(value: string) {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(value);
+    return;
+  }
+
+  const textarea = document.createElement('textarea');
+  textarea.value = value;
+  textarea.setAttribute('readonly', '');
+  textarea.style.position = 'fixed';
+  textarea.style.opacity = '0';
+  document.body.appendChild(textarea);
+  textarea.select();
+  document.execCommand('copy');
+  document.body.removeChild(textarea);
+}
+
 export default function CreateDeal() {
   const router = useRouter();
   const [title, setTitle] = useState('');
@@ -66,7 +83,7 @@ export default function CreateDeal() {
     <div className="min-h-screen bg-zinc-50 dark:bg-black text-zinc-900 dark:text-zinc-50 py-12 px-6 flex justify-center items-center">
       <div className="max-w-xl w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-8 shadow-sm">
         <h2 className="text-2xl font-bold mb-2">Create Deal Lockbox</h2>
-        <p className="text-zinc-500 dark:text-zinc-400 text-sm mb-6">Generate a secure payment escrow link to send to your client on any platform.</p>
+        <p className="text-zinc-500 dark:text-zinc-400 text-sm mb-6">Generate a client funding link and a freelancer deal link for this escrow.</p>
 
         {!done ? (
           <div className="space-y-5">
@@ -116,21 +133,28 @@ export default function CreateDeal() {
 
             {/* Client link */}
             <div className="space-y-2">
-              <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">📤 Send to Client:</p>
+              <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Client Funding Link</p>
               <input type="text" readOnly value={clientLink} className="w-full bg-zinc-100 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 py-3 text-amber-600 dark:text-amber-400 font-mono text-xs focus:outline-none" />
-              <button
-                type="button"
-                onClick={() => navigator.clipboard.writeText(clientLink)}
-                className="w-full py-2 bg-zinc-200 dark:bg-zinc-800 hover:bg-zinc-300 dark:hover:bg-zinc-700 text-zinc-900 dark:text-white text-sm font-medium rounded-xl transition"
-              >
+	              <button
+	                type="button"
+	                onClick={() => copyText(clientLink)}
+	                className="w-full py-2 bg-zinc-200 dark:bg-zinc-800 hover:bg-zinc-300 dark:hover:bg-zinc-700 text-zinc-900 dark:text-white text-sm font-medium rounded-xl transition"
+	              >
                 Copy Client Link
               </button>
             </div>
 
             {/* Freelancer link */}
             <div className="space-y-2">
-              <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">🔧 Your Freelancer Dashboard:</p>
+              <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Freelancer Deal Link</p>
               <input type="text" readOnly value={freelancerLink} className="w-full bg-zinc-100 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 py-3 text-blue-600 dark:text-blue-400 font-mono text-xs focus:outline-none" />
+	              <button
+	                type="button"
+	                onClick={() => copyText(freelancerLink)}
+	                className="w-full py-2 bg-zinc-200 dark:bg-zinc-800 hover:bg-zinc-300 dark:hover:bg-zinc-700 text-zinc-900 dark:text-white text-sm font-medium rounded-xl transition"
+	              >
+                Copy Freelancer Deal Link
+              </button>
             </div>
 
             <div className="flex gap-3">

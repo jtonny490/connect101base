@@ -12,6 +12,29 @@ interface Deal {
   deliverableUrl?: string;
 }
 
+const STATUS_COPY: Record<string, { label: string; className: string }> = {
+  awaiting_payment: {
+    label: 'Waiting for client to fund escrow',
+    className: 'bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-400',
+  },
+  escrow_funded: {
+    label: 'Funds secured in escrow — submit your Vercel preview link',
+    className: 'bg-blue-500/10 border-blue-500/20 text-blue-600 dark:text-blue-400',
+  },
+  awaiting_deliverable: {
+    label: 'Funds secured in escrow — awaiting deliverable URL',
+    className: 'bg-blue-500/10 border-blue-500/20 text-blue-600 dark:text-blue-400',
+  },
+  work_submitted: {
+    label: 'Deliverable submitted — waiting for client approval',
+    className: 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400',
+  },
+  done_deal: {
+    label: 'Done Deal — approved and funds released',
+    className: 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400',
+  },
+};
+
 const dealCache = new Map<string, { raw: string; value: Deal | null }>();
 
 function loadDeal(dealId: string): Deal | null {
@@ -57,18 +80,20 @@ export default function FreelancerDashboard() {
     () => null
   );
 
-  const [localDeal, setLocalDeal] = useState<Deal | null>(null);
   const [deliverableUrl, setDeliverableUrl] = useState('');
   const [urlError, setUrlError] = useState('');
   const [editingSubmission, setEditingSubmission] = useState(false);
-  const deal = localDeal || storedDeal;
+  const deal = storedDeal;
   const submitted = Boolean(deal?.deliverableUrl) && !editingSubmission;
+  const canSubmit = Boolean(deal && deal.status !== 'awaiting_payment' && deal.status !== 'done_deal');
+  const statusCopy = deal ? STATUS_COPY[deal.status] || STATUS_COPY.awaiting_payment : STATUS_COPY.awaiting_payment;
   const visibleDeliverableUrl = editingSubmission
     ? deliverableUrl
     : deliverableUrl || deal?.deliverableUrl || '';
 
   const handleSubmit = () => {
     if (!deal) return;
+    if (!canSubmit) return;
     const nextDeliverableUrl = visibleDeliverableUrl.trim();
     if (!nextDeliverableUrl) {
       setUrlError('Please enter a deliverable URL.');
@@ -81,7 +106,6 @@ export default function FreelancerDashboard() {
     setUrlError('');
     const updated: Deal = { ...deal, deliverableUrl: nextDeliverableUrl, status: 'work_submitted' };
     saveDeal(dealId, updated);
-    setLocalDeal(updated);
     setEditingSubmission(false);
   };
 
@@ -133,32 +157,27 @@ export default function FreelancerDashboard() {
           </div>
         </div>
 
-        <div className={`rounded-xl px-5 py-3 text-sm font-medium border ${
-          deal.status === 'work_submitted'
-            ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400'
-            : 'bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-400'
-        }`}>
-          {deal.status === 'awaiting_payment' && 'Awaiting client payment — share the client link'}
-          {deal.status === 'work_submitted' && 'Work submitted — client is reviewing your deliverable'}
+        <div className={`rounded-xl px-5 py-3 text-sm font-medium border ${statusCopy.className}`}>
+          {statusCopy.label}
         </div>
 
         <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-6 space-y-4 shadow-sm">
           <div>
             <h3 className="font-bold text-lg mb-1">Submit Your Deliverable</h3>
             <p className="text-xs text-zinc-500 dark:text-zinc-400">
-              Deploy your work and paste the preview URL. The client reviews it in a sandbox and cannot download your files.
+              Deploy your work and paste the preview URL after escrow is funded. The client reviews it in a controlled sandbox preview.
             </p>
           </div>
           <div className="space-y-2">
             <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider">
               Deliverable URL
             </label>
-              <input
-                type="url"
-                placeholder="https://your-project.vercel.app"
-                value={visibleDeliverableUrl}
-                onChange={(e) => setDeliverableUrl(e.target.value)}
-                disabled={submitted}
+            <input
+              type="url"
+              placeholder="https://your-project.vercel.app"
+              value={visibleDeliverableUrl}
+              onChange={(e) => setDeliverableUrl(e.target.value)}
+              disabled={submitted || !canSubmit}
               className="w-full bg-zinc-100 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 py-3 text-sm placeholder-zinc-400 focus:outline-none focus:border-amber-500 disabled:opacity-50"
             />
             <p className="text-[11px] text-zinc-400">
@@ -171,22 +190,25 @@ export default function FreelancerDashboard() {
             <button
               type="button"
               onClick={handleSubmit}
+              disabled={!canSubmit}
               className="w-full py-3 bg-blue-500 hover:bg-blue-400 text-white font-bold rounded-xl transition"
             >
-              Submit Work for Review
+              {deal.status === 'awaiting_payment' ? 'Waiting for Escrow Funding' : 'Submit Work for Review'}
             </button>
           ) : (
             <div className="space-y-3">
               <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 rounded-xl text-sm font-medium text-center">
-                Deliverable submitted — waiting for client approval
+                {deal.status === 'done_deal' ? 'Done Deal — client approved and funds released' : 'Deliverable submitted — waiting for client approval'}
               </div>
-              <button
-                type="button"
-                onClick={handleResubmit}
-                className="w-full py-2.5 bg-zinc-200 dark:bg-zinc-800 hover:bg-zinc-300 dark:hover:bg-zinc-700 text-zinc-900 dark:text-white text-sm font-medium rounded-xl transition"
-              >
-                Update Deliverable URL
-              </button>
+              {deal.status !== 'done_deal' && (
+                <button
+                  type="button"
+                  onClick={handleResubmit}
+                  className="w-full py-2.5 bg-zinc-200 dark:bg-zinc-800 hover:bg-zinc-300 dark:hover:bg-zinc-700 text-zinc-900 dark:text-white text-sm font-medium rounded-xl transition"
+                >
+                  Update Deliverable URL
+                </button>
+              )}
             </div>
           )}
         </div>

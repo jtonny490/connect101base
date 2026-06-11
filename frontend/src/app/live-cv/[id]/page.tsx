@@ -13,6 +13,7 @@ interface ContractItem {
   timestamp: number;
   isSeed?: boolean;
   isNew?: boolean;
+  verifiedAt?: number;
 }
 
 interface Deal {
@@ -23,6 +24,21 @@ interface Deal {
   timestamp: string;
   status: string;
   deliverableUrl?: string;
+}
+
+function saveDealStatus(preimage: string, status: string) {
+  if (!preimage) return;
+
+  const saved = localStorage.getItem(`deal_${preimage}`);
+  if (!saved) return;
+
+  try {
+    const parsed = JSON.parse(saved) as Deal;
+    localStorage.setItem(`deal_${preimage}`, JSON.stringify({ ...parsed, status }));
+    window.dispatchEvent(new Event('deallock-storage'));
+  } catch {
+    // Ignore malformed demo data.
+  }
 }
 
 async function verifyBlock(block: ContractItem): Promise<boolean> {
@@ -123,6 +139,7 @@ function sanitizeContracts(value: unknown): ContractItem[] {
         timestamp,
         isSeed: Boolean(contract.isSeed),
         isNew: Boolean(contract.isNew),
+        verifiedAt: Number(contract.verifiedAt || timestamp),
       };
     });
 }
@@ -146,9 +163,18 @@ function saveContracts(contracts: ContractItem[]) {
 
 function VerifiedBlock({ contract }: { contract: ContractItem }) {
   const signature = contract.preimage || 'missing_signature';
+  const [isJustVerified, setIsJustVerified] = useState(Boolean(contract.isNew));
   const [isValid, setIsValid] = useState<boolean | null>(
     contract.isSeed || contract.isNew ? true : null
   );
+
+  useEffect(() => {
+    if (!contract.isNew) return;
+
+    const ageMs = Date.now() - (contract.verifiedAt || contract.timestamp);
+    const timeout = window.setTimeout(() => setIsJustVerified(false), Math.max(0, 30000 - ageMs));
+    return () => window.clearTimeout(timeout);
+  }, [contract.isNew, contract.timestamp, contract.verifiedAt]);
 
   useEffect(() => {
     if (contract.isSeed || contract.isNew) return;
@@ -183,7 +209,7 @@ function VerifiedBlock({ contract }: { contract: ContractItem }) {
               ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border-emerald-500/20'
               : 'text-amber-600 dark:text-amber-400 bg-amber-500/10 border-amber-500/20'
         }`}>
-          {!isValid ? '⚠ Unverified' : contract.isNew ? '✔ Just Verified' : '✔ Verified Bitcoin Payment'}
+          {!isValid ? '⚠ Unverified' : isJustVerified ? '✔ Just Verified' : '✔ Verified Bitcoin Payment'}
         </span>
       </div>
 
@@ -201,7 +227,7 @@ function VerifiedBlock({ contract }: { contract: ContractItem }) {
   );
 }
 
-type EscrowStatus = 'funding' | 'locked' | 'waiting_delivery' | 'reviewing' | 'released';
+type EscrowStatus = 'funding' | 'waiting_delivery' | 'reviewing' | 'released';
 
 function LiveCVContent() {
   const searchParams = useSearchParams();
@@ -291,8 +317,10 @@ function LiveCVContent() {
       preimage: dealPreimage,
       timestamp: dealTimestamp,
       isNew: true,
+      verifiedAt: Date.now(),
     };
 
+    saveDealStatus(dealPreimage, 'done_deal');
     if (contracts.some(c => c.preimage === newContract.preimage)) return;
     saveContracts([newContract, ...contracts]);
   };
@@ -348,29 +376,21 @@ function LiveCVContent() {
 
                 {/* Status label */}
                 <div className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                  {escrowStatus === 'funding' && '⚡ Scan QR to fund escrow, then confirm below'}
-                  {escrowStatus === 'locked' && '🔒 Funds locked — share freelancer link so they can submit work'}
-                  {escrowStatus === 'waiting_delivery' && '⏳ Waiting for freelancer to submit deliverable...'}
-                  {escrowStatus === 'reviewing' && '👀 Deliverable ready — review and release funds'}
+                  {escrowStatus === 'funding' && 'Scan QR to fund escrow, then confirm funding for this demo'}
+                  {escrowStatus === 'waiting_delivery' && 'Funds secured in escrow — awaiting deliverable URL'}
+                  {escrowStatus === 'reviewing' && 'Deliverable ready — review and release funds'}
                 </div>
 
                 {/* STEP: Funding */}
                 {escrowStatus === 'funding' && (
                   <button
-                    onClick={() => setEscrowStatus('locked')}
+                    onClick={() => {
+                      saveDealStatus(dealPreimage, 'awaiting_deliverable');
+                      setEscrowStatus('waiting_delivery');
+                    }}
                     className="px-5 py-2.5 bg-blue-500 hover:bg-blue-400 text-white font-bold text-xs rounded-xl transition"
                   >
-                    Confirm Payment Sent
-                  </button>
-                )}
-
-                {/* STEP: Locked */}
-                {escrowStatus === 'locked' && (
-                  <button
-                    onClick={() => setEscrowStatus('waiting_delivery')}
-                    className="px-5 py-2.5 bg-indigo-500 hover:bg-indigo-400 text-white font-bold text-xs rounded-xl transition"
-                  >
-                    Waiting for Delivery
+                    Confirm Escrow Funded
                   </button>
                 )}
 
@@ -451,7 +471,7 @@ function LiveCVContent() {
         {escrowStatus === 'released' && (
           <div className="bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 dark:text-emerald-400 rounded-2xl p-5 text-center border-dashed space-y-2">
             <div className="font-semibold text-sm">
-              🚀 Escrow Released! Cryptographic CV entry anchored to SIG_0x{dealPreimage.substring(0, 12)}...
+              Done Deal — escrow released and Live CV entry anchored to SIG_0x{dealPreimage.substring(0, 12)}...
             </div>
             <div className="text-xs font-mono break-all text-zinc-400">
               Settlement Proof: {dealPreimage}

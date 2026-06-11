@@ -2,8 +2,12 @@ import Link from 'next/link';
 
 export default function Dashboard() {
   const activeDeals = [
-    { id: '1', title: 'Mobile App API Backend', amount: '45,000 Sats', status: 'Locked in Escrow', client: 'AlphaCorp (US)', origin: 'LinkedIn' },
-    { id: '2', title: 'Sheng Translation Voiceover', amount: '12,500 Sats', status: 'Awaiting Client Lock', client: 'David K.', origin: 'WhatsApp' }
+    { id: '1', title: 'Mobile App API Backend', amount: '45,000 Sats', status: 'Funds Secured', client: 'AlphaCorp (US)', origin: 'LinkedIn' },
+    { id: '2', title: 'Sheng Translation Voiceover', amount: '12,500 Sats', status: 'Awaiting Client Funding', client: 'David K.', origin: 'WhatsApp' }
+  ];
+
+  const completedDeals = [
+    { id: '3', title: 'Landing Page Redesign', amount: '10,000 Sats', status: 'Done Deal', client: 'Maya R.', origin: 'WhatsApp' }
   ];
 
   return (
@@ -53,13 +57,36 @@ export default function Dashboard() {
                 <div className="flex items-center justify-between sm:justify-end gap-6">
                   <div className="text-right">
                     <p className="font-bold text-zinc-900 dark:text-white">{deal.amount}</p>
-                    <p className={`text-xs ${deal.status.includes('Locked') ? 'text-amber-500 dark:text-amber-400' : 'text-zinc-400'}`}>{deal.status}</p>
+                    <p className={`text-xs ${deal.status.includes('Secured') ? 'text-emerald-500 dark:text-emerald-400' : 'text-zinc-400'}`}>{deal.status}</p>
                   </div>
-                  {deal.status.includes('Locked') && (
+                  {deal.status.includes('Secured') && (
                     <Link href="/live-cv/juma-codes?deal=active" className="px-4 py-2 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 border border-zinc-200 dark:border-zinc-700 rounded-lg text-xs font-semibold transition text-center">
                       View Escrow
                     </Link>
                   )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl overflow-hidden shadow-sm">
+          <div className="px-6 py-4 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/50">
+            <h3 className="font-bold">Completed Deals</h3>
+          </div>
+          <div className="divide-y divide-zinc-200 dark:divide-zinc-800">
+            {completedDeals.map((deal) => (
+              <div key={deal.id} className="p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <h4 className="font-semibold text-zinc-900 dark:text-white">{deal.title}</h4>
+                    <span className="text-xs px-2 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700">{deal.origin}</span>
+                  </div>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400">Client: <span className="text-zinc-800 dark:text-zinc-300 font-medium">{deal.client}</span></p>
+                </div>
+                <div className="text-right">
+                  <p className="font-bold text-zinc-900 dark:text-white">{deal.amount}</p>
+                  <p className="text-xs text-emerald-500 dark:text-emerald-400">{deal.status}</p>
                 </div>
               </div>
             ))}

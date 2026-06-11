@@ -1,5 +1,11 @@
 # System Architecture
 
+For the implementation split, see:
+
+* `docs/team-build-plan.md`
+* `docs/frontend-plan.md`
+* `docs/backend-plan.md`
+
 ## High Level Flow
 
 Client
