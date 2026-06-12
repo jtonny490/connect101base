@@ -249,12 +249,14 @@ function LiveCVContent() {
   useEffect(() => {
     if (!userId) return;
     const backendBase = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
-    fetch(`${backendBase}/api/live-cv/${userId}`)
-      .then((res) => {
+
+    let mounted = true;
+
+    async function pollLiveCv() {
+      try {
+        const res = await fetch(`${backendBase}/api/live-cv/${userId}`);
         if (!res.ok) throw new Error('No live CV found');
-        return res.json();
-      })
-      .then((body) => {
+        const body = await res.json();
         if (!Array.isArray(body?.entries)) return;
         const entries = body.entries.map((entry: any) => ({
           title: String(entry.title || 'Untitled Deal'),
@@ -266,13 +268,22 @@ function LiveCVContent() {
           timestamp: Number(entry.verifiedAt || entry.timestamp || Date.now()),
           isNew: true,
         }));
-        if (entries.length > 0) {
-          setBackendEntries(entries);
-        }
-      })
-      .catch(() => {
+
+        if (!mounted) return;
+        setBackendEntries(entries.length > 0 ? entries : null);
+      } catch (err) {
+        if (!mounted) return;
         setBackendEntries(null);
-      });
+      }
+    }
+
+    // initial poll + interval
+    pollLiveCv();
+    const intervalId = window.setInterval(pollLiveCv, 5000);
+    return () => {
+      mounted = false;
+      clearInterval(intervalId);
+    };
   }, [userId]);
 
   const [escrowStatus, setEscrowStatus] = useState<EscrowStatus>('funding');

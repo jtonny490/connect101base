@@ -190,6 +190,22 @@ app.post('/api/milestones/:id/approve', (req, res) => {
   const milestone = getMilestone(req.params.id);
   if (!milestone) return res.status(404).json({ error: 'Milestone not found' });
   updateMilestone(milestone.id, { status: 'approved' });
+
+  const deal = getDeal(milestone.dealId);
+  if (deal) {
+    createCvEntry({
+      userId: users[0].id,
+      dealId: deal.id,
+      milestoneId: milestone.id,
+      title: milestone.title,
+      amountSats: milestone.amountSats,
+      amountLocal: estimateLocalAmount(milestone.amountSats, deal.localCurrency || 'KES'),
+      localCurrency: deal.localCurrency || 'KES',
+      preimage: createId('cv'),
+      review: `Approved milestone ${milestone.id}`,
+    });
+  }
+
   return res.json({ milestone });
 });
 

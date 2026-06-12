@@ -308,7 +308,15 @@ export default function FreelancerDashboard() {
                 disabled={!canSubmit || submitting || submissionPending || approved}
                 className="w-full py-3 rounded-xl bg-blue-500 hover:bg-blue-400 text-white font-bold transition disabled:opacity-50"
               >
-                {submitting ? 'Submitting...' : submissionPending ? 'Submission Pending' : canSubmit ? 'Submit Work' : 'Waiting for Funding'}
+                {submitting
+                  ? 'Submitting...'
+                  : submissionPending
+                  ? 'Submission Pending'
+                  : approved
+                  ? 'Milestone Approved'
+                  : canSubmit
+                  ? 'Submit Work'
+                  : 'Waiting for Funding'}
               </button>
             </div>
           </div>
