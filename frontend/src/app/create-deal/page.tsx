@@ -1,6 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { getBackendUrl } from '@/lib/backend';
 
 async function copyText(value: string) {
   if (navigator.clipboard?.writeText) {
@@ -46,8 +47,7 @@ export default function CreateDeal() {
     setLoading(true);
 
     try {
-      const backendBase = process.env.NEXT_PUBLIC_BACKEND_URL ||
-        (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:4000');
+      const backendBase = getBackendUrl();
 
       const milestoneTotal = milestones.reduce((s, m) => s + (Number(m.amount) || 0), 0);
       const finalAmount = milestoneTotal > 0 ? milestoneTotal : Number(amount || 0);

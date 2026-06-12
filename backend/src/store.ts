@@ -1,4 +1,3 @@
-import { randomBytes } from 'crypto';
 import type {
   Bounty,
   BountySubmission,
@@ -9,10 +8,7 @@ import type {
   Submission,
   User,
 } from './types.js';
-
-function createId(prefix: string) {
-  return `${prefix}_${randomBytes(6).toString('hex')}`;
-}
+import { createId, estimateLocalAmount } from './helpers.js';
 
 function now() {
   return new Date().toISOString();
@@ -134,11 +130,6 @@ const exchangeRates: Record<string, number> = {
   USD: 0.025,
   EUR: 0.023,
 };
-
-export function estimateLocalAmount(amountSats: number, currency: string) {
-  const rate = exchangeRates[currency.toUpperCase()] ?? exchangeRates.USD;
-  return Math.max(1, Math.round(amountSats * rate));
-}
 
 export function createPayment(input: {
   dealId: string;

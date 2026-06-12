@@ -2,6 +2,7 @@
 import { useParams, useSearchParams } from 'next/navigation';
 import { useState, Suspense, useEffect, useRef, useSyncExternalStore } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
+import { getBackendUrl } from '@/lib/backend';
 
 interface ContractItem {
   title: string;
@@ -248,7 +249,7 @@ function LiveCVContent() {
 
   useEffect(() => {
     if (!userId) return;
-    const backendBase = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
+    const backendBase = getBackendUrl();
 
     let mounted = true;
 

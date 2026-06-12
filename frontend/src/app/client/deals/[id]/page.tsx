@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
+import { getBackendUrl } from '@/lib/backend';
 
 interface DealPayload {
   deal: {
@@ -58,9 +59,7 @@ export default function ClientDealPage() {
   const [bountyLoading, setBountyLoading] = useState(false);
   const [bountyMessage, setBountyMessage] = useState('');
   const [sandboxUrl, setSandboxUrl] = useState<string | null>(null);
-  const [backendUrl] = useState(
-    process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000'
-  );
+  const [backendUrl] = useState(getBackendUrl());
 
   const refreshDeal = async () => {
     if (!dealId) return;

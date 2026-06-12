@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
+import { getBackendUrl } from '@/lib/backend';
 
 interface DealResponse {
   deal: {
@@ -8,6 +9,7 @@ interface DealResponse {
     title: string;
     origin?: string;
     amountSats: number;
+    payInSats?: boolean;
     status: string;
   };
   milestones: Array<{
@@ -44,7 +46,7 @@ export default function FreelancerDashboard() {
   const [bountyNotes, setBountyNotes] = useState('');
   const [bountySubmissions, setBountySubmissions] = useState<any[]>([]);
   const [bountyMessage, setBountyMessage] = useState('');
-  const backendBase = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
+  const backendBase = getBackendUrl();
 
   useEffect(() => {
     if (!dealId) return;
