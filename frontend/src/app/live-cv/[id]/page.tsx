@@ -479,3 +479,73 @@ function LiveCVContent() {
                   </div>
                 )}
 
+{/* Review + Release */}
+                <div className="space-y-3">
+                  <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider">
+                    Your Review <span className="normal-case font-normal text-zinc-400">(optional, 280 chars max)</span>
+                  </label>
+                  <textarea
+                    maxLength={280}
+                    rows={3}
+                    placeholder='e.g., "Phenomenal work, delivered ahead of schedule."'
+                    value={clientReview}
+                    onChange={(e) => setClientReview(e.target.value)}
+                    className="w-full bg-zinc-100 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 py-3 text-sm placeholder-zinc-400 focus:outline-none focus:border-amber-500 resize-none"
+                  />
+                  <div className="flex justify-between">
+                    {reviewError
+                      ? <p className="text-xs text-red-500">{reviewError}</p>
+                      : <span />
+                    }
+                    <p className="text-xs text-zinc-400 ml-auto">{clientReview.length}/280</p>
+                  </div>
+                  <button
+                    onClick={handleReleaseEscrow}
+                    className="w-full py-3 bg-emerald-500 hover:bg-emerald-400 text-white font-bold rounded-xl transition"
+                  >
+                    Approve & Release Funds
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Release success */}
+        {escrowStatus === 'released' && (
+          <div className="bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 dark:text-emerald-400 rounded-2xl p-5 text-center border-dashed space-y-2">
+            <div className="font-semibold text-sm">
+              Done Deal — escrow released and Live CV entry anchored to SIG_0x{dealPreimage.substring(0, 12)}...
+            </div>
+            <div className="text-xs font-mono break-all text-zinc-400">
+              Settlement Proof: {dealPreimage}
+            </div>
+          </div>
+        )}
+
+        {/* Verified Portfolio */}
+        <div className="space-y-4">
+          <h3 className="text-lg font-bold tracking-wide">Cryptographically Anchored Proof-of-Work</h3>
+          <div className="space-y-4">
+            {contracts.map((contract, index) => (
+              <VerifiedBlock key={`${contract.preimage}-${contract.timestamp}-${index}`} contract={contract} />
+            ))}
+          </div>
+        </div>
+
+      </div>
+    </div>
+  );
+}
+
+export default function LiveCV() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-zinc-50 dark:bg-black text-center pt-24 text-zinc-500">
+        Loading CV Profile...
+      </div>
+    }>
+      <LiveCVContent />
+    </Suspense>
+  );
+}
