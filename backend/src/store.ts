@@ -58,6 +58,7 @@ export function createDeal(input: {
   amountSats: number;
   localCurrency?: string;
   amountLocal?: number;
+  payInSats?: boolean;
 }): Deal {
   const deal: Deal = {
     id: createId('deal'),
@@ -69,6 +70,7 @@ export function createDeal(input: {
     amountSats: input.amountSats,
     amountLocal: input.amountLocal,
     localCurrency: input.localCurrency || 'KES',
+    payInSats: input.payInSats ?? false,
     status: 'draft',
     clientToken: createId('client'),
     freelancerToken: createId('freelancer'),

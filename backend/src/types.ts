@@ -44,6 +44,7 @@ export interface Deal {
   amountSats: number;
   amountLocal?: number;
   localCurrency?: string;
+  payInSats?: boolean;
   status: DealStatus;
   clientToken: string;
   freelancerToken: string;

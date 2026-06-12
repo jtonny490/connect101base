@@ -36,7 +36,7 @@ app.get('/health', (_req, res) => {
 });
 
 app.post('/api/deals', (req, res) => {
-  const { title, description, origin, amountSats, localCurrency } = req.body;
+  const { title, description, origin, amountSats, localCurrency, milestones: incomingMilestones, payInSats } = req.body;
   if (!title || !amountSats) {
     return res.status(400).json({ error: 'Missing title or amountSats' });
   }
@@ -50,17 +50,33 @@ app.post('/api/deals', (req, res) => {
     amountLocal: 0,
     freelancerId: users[0].id,
     clientId: users[1].id,
+    payInSats: Boolean(payInSats),
   });
 
-  const defaultMilestone = createMilestone({
-    dealId: deal.id,
-    title: 'Full project milestone',
-    description: 'Default milestone for the full escrow amount',
-    amountSats: deal.amountSats,
-    position: 1,
-  });
+  let createdMilestoneId: string | null = null;
+  if (Array.isArray(incomingMilestones) && incomingMilestones.length > 0) {
+    incomingMilestones.forEach((m: any, idx: number) => {
+      const ms = createMilestone({
+        dealId: deal.id,
+        title: m.title || `Milestone ${idx + 1}`,
+        description: m.description || undefined,
+        amountSats: Number(m.amountSats || m.amount || 0),
+        position: Number(m.position ?? idx + 1),
+      });
+      if (idx === 0) createdMilestoneId = ms.id;
+    });
+  } else {
+    const defaultMilestone = createMilestone({
+      dealId: deal.id,
+      title: 'Full project milestone',
+      description: 'Default milestone for the full escrow amount',
+      amountSats: deal.amountSats,
+      position: 1,
+    });
+    createdMilestoneId = defaultMilestone.id;
+  }
 
-  return res.status(201).json({ ...deal, defaultMilestoneId: defaultMilestone.id });
+  return res.status(201).json({ ...deal, defaultMilestoneId: createdMilestoneId });
 });
 
 app.get('/api/deals/:id', (req, res) => {

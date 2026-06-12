@@ -26,6 +26,10 @@ export default function CreateDeal() {
   const [origin, setOrigin] = useState('Direct');
   const [provider, setProvider] = useState('lightning');
   const [currency, setCurrency] = useState('KES');
+  const [milestones, setMilestones] = useState<Array<{ title: string; amount: string }>>([
+    { title: 'Full project milestone', amount: '' },
+  ]);
+  const [payInSats, setPayInSats] = useState(false);
 
   const [paymentRequest, setPaymentRequest] = useState('');
   const [paymentInstructions, setPaymentInstructions] = useState('');
@@ -45,10 +49,14 @@ export default function CreateDeal() {
       const backendBase = process.env.NEXT_PUBLIC_BACKEND_URL ||
         (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:4000');
 
+      const milestoneTotal = milestones.reduce((s, m) => s + (Number(m.amount) || 0), 0);
+      const finalAmount = milestoneTotal > 0 ? milestoneTotal : Number(amount || 0);
+      const milestonesPayload = milestones.map((m, idx) => ({ title: m.title || `Milestone ${idx+1}`, amountSats: Number(m.amount) || 0 }));
+
       const dealResponse = await fetch(`${backendBase}/api/deals`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, origin, amountSats: Number(amount), description: '' }),
+        body: JSON.stringify({ title, origin, amountSats: finalAmount, description: '', milestones: milestonesPayload, payInSats }),
       });
 
       const deal = await dealResponse.json();
@@ -105,6 +113,12 @@ export default function CreateDeal() {
                 <option value="LinkedIn">LinkedIn DM</option>
               </select>
             </div>
+            <div className="mt-3">
+              <label className="inline-flex items-center gap-3">
+                <input type="checkbox" checked={payInSats} onChange={(e) => setPayInSats(e.target.checked)} className="w-4 h-4" />
+                <span className="text-sm text-zinc-700 dark:text-zinc-300">Pay freelancer in sats (no local conversion)</span>
+              </label>
+            </div>
             <div>
               <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">Deal Title / Scope of Work</label>
               <input
@@ -142,6 +156,43 @@ export default function CreateDeal() {
                   <option value="USD">USD</option>
                   <option value="EUR">EUR</option>
                 </select>
+              </div>
+            </div>
+            <div className="mt-4">
+              <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">Milestones</p>
+              <div className="space-y-3">
+                {milestones.map((m, idx) => (
+                  <div key={idx} className="grid grid-cols-12 gap-2 items-center">
+                    <input
+                      value={m.title}
+                      onChange={(e) => setMilestones(s => s.map((it,i) => i===idx ? { ...it, title: e.target.value } : it))}
+                      placeholder={`Milestone ${idx+1} title`}
+                      className="col-span-7 bg-zinc-100 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 py-3 text-sm"
+                    />
+                    <input
+                      value={m.amount}
+                      onChange={(e) => setMilestones(s => s.map((it,i) => i===idx ? { ...it, amount: e.target.value } : it))}
+                      placeholder="Amount (sats)"
+                      className="col-span-3 bg-zinc-100 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 py-3 text-sm"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setMilestones(s => s.filter((_, i) => i !== idx))}
+                      className="col-span-2 py-2 bg-red-100 text-red-600 rounded-xl text-sm"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ))}
+                <div>
+                  <button
+                    type="button"
+                    onClick={() => setMilestones(s => [...s, { title: `Milestone ${s.length+1}`, amount: '' }])}
+                    className="w-full py-2 bg-zinc-200 dark:bg-zinc-800 hover:bg-zinc-300 dark:hover:bg-zinc-700 text-zinc-900 dark:text-white text-sm font-medium rounded-xl transition"
+                  >
+                    + Add milestone
+                  </button>
+                </div>
               </div>
             </div>
             <button

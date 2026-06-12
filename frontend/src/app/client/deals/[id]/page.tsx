@@ -51,6 +51,13 @@ export default function ClientDealPage() {
   const [bountyAmount, setBountyAmount] = useState('0');
   const [bountyDescription, setBountyDescription] = useState('Resolve issues from rejected milestone delivery.');
   const [submissions, setSubmissions] = useState<Array<{ id: string; milestoneId: string; previewUrl: string; notes?: string; status: string; createdAt: string; }>>([]);
+  const [bounty, setBounty] = useState<any | null>(null);
+  const [bountySubmissions, setBountySubmissions] = useState<any[]>([]);
+  const [bountyPreviewUrl, setBountyPreviewUrl] = useState('');
+  const [bountyNotes, setBountyNotes] = useState('');
+  const [bountyLoading, setBountyLoading] = useState(false);
+  const [bountyMessage, setBountyMessage] = useState('');
+  const [sandboxUrl, setSandboxUrl] = useState<string | null>(null);
   const [backendUrl] = useState(
     process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000'
   );
@@ -73,8 +80,34 @@ export default function ClientDealPage() {
         } else {
           setSubmissions([]);
         }
+        // fetch any open bounty for this deal+milestone
+        try {
+          const bRes = await fetch(`${backendUrl}/api/bounties`);
+          if (bRes.ok) {
+            const bList = await bRes.json();
+            const found = bList.find((b: any) => b.dealId === payload.deal.id && b.milestoneId === firstMilestoneId && b.status === 'open');
+            if (found) {
+              setBounty(found);
+              const bsRes = await fetch(`${backendUrl}/api/bounties/${found.id}/submissions`);
+              if (bsRes.ok) {
+                const bsBody = await bsRes.json();
+                setBountySubmissions(bsBody.submissions || []);
+              } else {
+                setBountySubmissions([]);
+              }
+            } else {
+              setBounty(null);
+              setBountySubmissions([]);
+            }
+          }
+        } catch (err) {
+          setBounty(null);
+          setBountySubmissions([]);
+        }
       } else {
         setSubmissions([]);
+        setBounty(null);
+        setBountySubmissions([]);
       }
     } catch (err) {
       console.error(err);
@@ -86,6 +119,15 @@ export default function ClientDealPage() {
 
   useEffect(() => {
     refreshDeal();
+  }, [dealId, backendUrl]);
+
+  // Poll the deal occasionally so changes (funding, submissions) appear without refresh
+  useEffect(() => {
+    if (!dealId) return;
+    const iv = setInterval(() => {
+      refreshDeal();
+    }, 5000);
+    return () => clearInterval(iv);
   }, [dealId, backendUrl]);
 
   const handleCheckPayment = async () => {
@@ -183,6 +225,40 @@ export default function ClientDealPage() {
     }
   };
 
+  const handleSubmitBounty = async (bountyId: string) => {
+    if (!bountyPreviewUrl.trim()) {
+      setBountyMessage('Preview URL is required.');
+      return;
+    }
+    setBountyLoading(true);
+    setBountyMessage('Submitting…');
+    try {
+      const res = await fetch(`${backendUrl}/api/bounties/${bountyId}/submissions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ previewUrl: bountyPreviewUrl.trim(), notes: bountyNotes.trim() }),
+      });
+      if (!res.ok) {
+        const body = await res.json();
+        throw new Error(body?.error || 'Submission failed');
+      }
+      setBountyPreviewUrl('');
+      setBountyNotes('');
+      setBountyMessage('Submission sent.');
+      // refresh submissions
+      const bsRes = await fetch(`${backendUrl}/api/bounties/${bountyId}/submissions`);
+      if (bsRes.ok) {
+        const bsBody = await bsRes.json();
+        setBountySubmissions(bsBody.submissions || []);
+      }
+    } catch (err) {
+      console.error(err);
+      setBountyMessage((err as Error).message || 'Submission failed');
+    } finally {
+      setBountyLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-zinc-50 dark:bg-black flex items-center justify-center text-zinc-500">
@@ -270,6 +346,7 @@ export default function ClientDealPage() {
               ) : (
                 data.milestones.map((milestone) => {
                   const milestoneSubmissions = submissions.filter((submission) => submission.milestoneId === milestone.id);
+                  const latestSubmission = milestoneSubmissions[0] ?? null;
                   const canApprove = milestone.status === 'submitted';
                   const canReject = milestone.status === 'submitted';
                   const canOpenBounty = milestone.status === 'rejected' || milestone.status === 'disputed';
@@ -284,21 +361,33 @@ export default function ClientDealPage() {
                       </div>
                       <p className="mt-2 text-sm text-zinc-700 dark:text-zinc-300">{milestone.amountSats.toLocaleString()} sats</p>
 
-                      {milestone.status === 'submitted' && (
+                      {milestone.status === 'submitted' && latestSubmission && (
                         <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
                           <p className="font-semibold">Submission ready for review</p>
-                          {milestoneSubmissions.length > 0 ? (
-                            milestoneSubmissions.map((submission) => (
-                              <div key={submission.id} className="mt-3 space-y-2">
-                                <p className="text-xs text-zinc-600">Deliverable URL</p>
-                                <a href={submission.previewUrl} target="_blank" rel="noreferrer" className="block text-blue-600 dark:text-blue-400 underline break-all">{submission.previewUrl}</a>
-                                <p className="text-xs text-zinc-600">Notes</p>
-                                <p className="text-sm text-zinc-700 dark:text-zinc-300">{submission.notes || 'No additional notes.'}</p>
-                              </div>
-                            ))
-                          ) : (
-                            <p className="mt-2 text-sm text-zinc-700 dark:text-zinc-300">No submission details available yet.</p>
-                          )}
+                          <div className="mt-3 space-y-2">
+                            <p className="text-xs text-zinc-600">Deliverable URL</p>
+                            <a href={latestSubmission.previewUrl} target="_blank" rel="noreferrer" className="block text-blue-600 dark:text-blue-400 underline break-all">{latestSubmission.previewUrl}</a>
+                            <p className="text-xs text-zinc-600">Notes</p>
+                            <p className="text-sm text-zinc-700 dark:text-zinc-300">{latestSubmission.notes || 'No additional notes.'}</p>
+                            <button
+                              onClick={() => setSandboxUrl(sandboxUrl === latestSubmission.previewUrl ? null : latestSubmission.previewUrl)}
+                              className="w-full rounded-xl bg-violet-500 hover:bg-violet-400 py-3 text-sm font-bold text-white"
+                            >
+                              {sandboxUrl === latestSubmission.previewUrl ? '✕ Close Sandbox' : '🔬 Open in Sandbox'}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {sandboxUrl && milestone.status === 'submitted' && (
+                        <div className="mt-4 rounded-2xl border border-violet-200 bg-violet-50 p-4">
+                          <div className="flex items-center justify-between mb-2">
+                            <p className="font-semibold">🔬 Sandbox — Testing Freelancer Deliverable</p>
+                            <button onClick={() => setSandboxUrl(null)} className="text-white text-xs underline">Close</button>
+                          </div>
+                          <div className="w-full h-[400px] rounded-xl overflow-hidden border">
+                            <iframe src={sandboxUrl} className="w-full h-full" />
+                          </div>
                         </div>
                       )}
 
@@ -364,6 +453,35 @@ export default function ClientDealPage() {
                               >
                                 {actionLoading ? 'Opening bounty…' : 'Create bounty'}
                               </button>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Bounty panel (if a bounty is open for this milestone) */}
+                      {bounty && (
+                        <div className="mt-4 rounded-2xl border border-indigo-200 bg-indigo-50 p-4">
+                          <p className="font-semibold">Open Bounty: {bounty.title}</p>
+                          <p className="text-xs text-zinc-500">{bounty.description}</p>
+                          <p className="text-sm mt-2">Amount: {bounty.amountSats.toLocaleString()} sats</p>
+
+                          <div className="mt-3">
+                            <p className="text-xs font-semibold">Submit a solution</p>
+                            <input value={bountyPreviewUrl} onChange={(e) => setBountyPreviewUrl(e.target.value)} placeholder="https://your-fix.example" className="w-full bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 py-3 text-sm mt-2" />
+                            <textarea value={bountyNotes} onChange={(e) => setBountyNotes(e.target.value)} rows={3} placeholder="Notes" className="w-full bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 py-3 text-sm mt-2" />
+                            {bountyMessage && <p className="text-xs text-zinc-500 mt-2">{bountyMessage}</p>}
+                            <button onClick={() => handleSubmitBounty(bounty.id)} disabled={bountyLoading} className="w-full mt-2 py-3 bg-violet-500 text-white rounded-xl">{bountyLoading ? 'Submitting…' : 'Submit bounty solution'}</button>
+                          </div>
+
+                          {bountySubmissions.length > 0 && (
+                            <div className="mt-4">
+                              <p className="text-xs font-semibold">Submissions</p>
+                              {bountySubmissions.map((s) => (
+                                <div key={s.id} className="mt-2 p-2 border rounded">
+                                  <a href={s.previewUrl} target="_blank" rel="noreferrer" className="text-blue-600">{s.previewUrl}</a>
+                                  <p className="text-xs">{s.notes}</p>
+                                </div>
+                              ))}
                             </div>
                           )}
                         </div>
