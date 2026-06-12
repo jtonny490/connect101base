@@ -25,6 +25,7 @@ export type PaymentProvider = 'lightning' | 'mpesa';
 
 export interface User {
   id: string;
+  slug?: string;
   name: string;
   role: 'freelancer' | 'client' | 'bounty_developer';
   lightningAddress?: string;

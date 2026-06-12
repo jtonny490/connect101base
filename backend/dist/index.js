@@ -216,7 +216,8 @@ app.post('/api/bounty-submissions/:id/accept', (req, res) => {
     return res.json({ submission, bounty });
 });
 app.get('/api/live-cv/:userId', (req, res) => {
-    const user = users.find((u) => u.id === req.params.userId);
+    const userId = req.params.userId;
+    const user = users.find((u) => u.id === userId || u.slug === userId);
     if (!user)
         return res.status(404).json({ error: 'User not found' });
     return res.json({ user, entries: getCvForUser(user.id) });

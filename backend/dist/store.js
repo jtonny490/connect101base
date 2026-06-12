@@ -8,6 +8,7 @@ function now() {
 export const users = [
     {
         id: 'user_freelancer_1',
+        slug: 'juma-codes',
         name: 'Freelancer Juma',
         role: 'freelancer',
         lightningAddress: 'juma@lightning.example',
@@ -18,6 +19,7 @@ export const users = [
     },
     {
         id: 'user_client_1',
+        slug: 'client-amina',
         name: 'Client Amina',
         role: 'client',
         lightningAddress: 'amina@lightning.example',
