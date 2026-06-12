@@ -14,83 +14,115 @@ This creates a trust gap for both workers and clients.
 
 DealLock combines Bitcoin-powered escrow with portable reputation.
 
-Every completed contract creates a verifiable proof-of-work record that automatically updates a user's Live CV.
+Every completed contract can become a verifiable work record that updates a freelancer's Live CV.
 
-Instead of simply getting paid, users build a permanent work history backed by real economic activity.
+Instead of simply receiving payment, users build an economic history backed by real milestone funding, delivery, and approval.
 
-## How It Works
+## Current Workflow
 
-1. Freelancer creates a DealLock contract.
-2. Client funds the contract through Bitcoin Lightning escrow.
-3. Work is completed.
-4. Client releases funds.
-5. DealLock automatically generates a verified work record.
-6. Freelancer's Live CV and Trust Score are updated.
+1. Freelancer creates a deal and defines one or more milestones.
+2. Client creates an invoice and funds the deal.
+3. The backend marks the deal as funded and milestones become fund-ready.
+4. Freelancer submits a deliverable URL for the funded milestone.
+5. Client approves the milestone.
+6. The backend creates a Live CV entry for the approved milestone.
+7. The freelancer's Live CV reflects the verified work record.
+
+### Notes
+
+* Deals are stored in memory during development, so restarting the backend clears state.
+* Live CV entries appear only after milestone approval.
+* The deal flow now supports custom milestones and a `payInSats` option for BTC-only freelancer payment.
 
 ## Features
 
-* Bitcoin Lightning escrow
-* Portable reputation system
-* Live CV generation
-* Trust score calculation
-* Cross-platform contract links
-* Verified project history
-* Client reviews tied to completed payments
-
-## Why Bitcoin
-
-Traditional payment systems can move money but cannot easily create programmable trust.
-
-Bitcoin Lightning enables:
-
-* Fast settlement
-* Low fees
-* Global accessibility
-* Escrow workflows
-* Cryptographic verification
-
-DealLock transforms financial activity into reputation.
-
-## Example
-
-A designer completes a $300 project.
-
-Instead of simply receiving payment:
-
-* Funds are released.
-* The project is verified.
-* A review is attached.
-* A new entry appears on the designer's Live CV.
-
-## Future Roadmap
-
-* Multi-milestone contracts
-* M-Pesa integration
-* Team contracts
-* Reputation export APIs
-* DAO-based dispute resolution
-* Employer verification portal
+* Multi-milestone deal builder
+* Lightning invoice creation and payment simulation
+* Funded milestone state for submission readiness
+* Freelancer deliverable preview and sandbox iframe support
+* Client approval flow
+* Live CV generation from approved milestones
+* In-memory backend for fast prototyping
 
 ## Tech Stack
 
 Frontend:
 
-* Next.js
+* Next.js (App Router)
+* React
 * TypeScript
 * Tailwind CSS
 
 Backend:
 
-* Supabase
-* PostgreSQL
+* Node.js
+* Express
+* TypeScript
+* In-memory store for deals, milestones, payments, submissions, bounties, and CV entries
 
-Bitcoin Layer:
+## Project structure
 
-* Lightning Network
-* LNBits / Alby APIs
+The repository has two main workspaces plus docs:
+
+```
+./
+├── backend/
+│   ├── package.json
+│   ├── tsconfig.json
+│   ├── src/
+│   │   ├── index.ts         # Express server and API routes
+│   │   ├── store.ts         # in-memory state, deal/milestone/payment helpers
+│   │   └── types.ts         # shared backend models and enums
+├── docs/
+│   ├── architecture.md
+│   ├── backend-plan.md
+│   ├── db-schema.md
+│   ├── demo-script.md
+│   ├── frontend-plan.md
+│   ├── problem-solution.md
+│   └── team-build-plan.md
+├── frontend/
+│   ├── package.json
+│   ├── tsconfig.json
+│   ├── next.config.ts
+│   ├── .env.local
+│   ├── src/
+│   │   └── app/
+│   │       ├── api/create-invoice/route.ts
+│   │       ├── create-deal/page.tsx
+│   │       ├── dashboard/page.tsx
+│   │       ├── client/deals/[id]/page.tsx
+│   │       ├── freelancer/[id]/page.tsx
+│   │       ├── live-cv/[id]/page.tsx
+│   │       ├── globals.css
+│   │       ├── layout.tsx
+│   │       └── navbar.tsx
+│   └── public/
+└── README.md
+```
+
+## Running locally
+
+1. Start the backend:
+
+```bash
+cd backend
+npm install
+npm run dev
+```
+
+2. Start the frontend in another terminal:
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+3. Create a deal in the frontend, fund it, submit work, and approve the milestone.
 
 ## Vision
 
 Every completed payment should become proof of work.
 
-DealLock turns financial transactions into portable trust.
+DealLock turns funded and approved milestones into a portable reputation record.
