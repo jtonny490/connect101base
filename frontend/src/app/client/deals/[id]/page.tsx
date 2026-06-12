@@ -140,3 +140,122 @@ export default function ClientDealPage() {
     refreshDeal();
   }, [dealId, backendUrl]);
 
+  // Poll the deal occasionally so changes (funding, submissions) appear without refresh
+  useEffect(() => {
+    if (!dealId) return;
+    const iv = setInterval(() => {
+      refreshDeal();
+    }, 5000);
+    return () => clearInterval(iv);
+  }, [dealId, backendUrl]);
+
+  const handleCheckPayment = async () => {
+    if (!latestPayment) return;
+    setPaymentLoading(true);
+    setPaymentMessage("Checking payment...");
+
+    try {
+      const response = await fetch(
+        `${backendUrl}/api/payments/${latestPayment.id}/check`,
+        {
+          method: "POST",
+        },
+      );
+      if (!response.ok) {
+        const body = await response.json();
+        throw new Error(body?.error || "Payment verification failed");
+      }
+      const result = await response.json();
+      setPaymentMessage(`Payment status: ${result.status}`);
+      await refreshDeal();
+    } catch (err) {
+      console.error(err);
+      setPaymentMessage((err as Error).message || "Unable to verify payment.");
+    } finally {
+      setPaymentLoading(false);
+    }
+  };
+
+  const handleAction = async (path: string, successMessage: string) => {
+    if (!data) return;
+    setActionLoading(true);
+    setActionMessage("Processing…");
+    try {
+      const response = await fetch(`${backendUrl}${path}`, { method: "POST" });
+      if (!response.ok) {
+        const body = await response.json();
+        throw new Error(body?.error || "Action failed");
+      }
+      setActionMessage(successMessage);
+      await refreshDeal();
+    } catch (err) {
+      console.error(err);
+      setActionMessage((err as Error).message || "Action failed.");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleApproveMilestone = async (milestoneId: string) => {
+    await handleAction(
+      `/api/milestones/${milestoneId}/approve`,
+      "Milestone approved.",
+    );
+  };
+
+  const handleRejectMilestone = async (milestoneId: string) => {
+    await handleAction(
+      `/api/milestones/${milestoneId}/reject`,
+      "Milestone rejected. You can open a bounty from this milestone.",
+    );
+  };
+
+  const handleReleaseFunds = async () => {
+    if (!latestPayment) return;
+    await handleAction(
+      `/api/payments/${latestPayment.id}/release`,
+      "Funds released.",
+    );
+  };
+
+  const handleOpenBounty = async (milestoneId: string) => {
+    if (!data) return;
+    if (!bountyTitle.trim()) {
+      setActionMessage("Bounty title is required.");
+      return;
+    }
+    if (!Number(bountyAmount) || Number(bountyAmount) <= 0) {
+      setActionMessage("Enter a valid bounty amount.");
+      return;
+    }
+    setActionLoading(true);
+    setActionMessage("Opening bounty…");
+
+    try {
+      const response = await fetch(
+        `${backendUrl}/api/milestones/${milestoneId}/bounty`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: bountyTitle.trim(),
+            description: bountyDescription.trim(),
+            amountSats: Number(bountyAmount),
+          }),
+        },
+      );
+      if (!response.ok) {
+        const body = await response.json();
+        throw new Error(body?.error || "Unable to open bounty");
+      }
+      setActionMessage("Bounty opened successfully.");
+      await refreshDeal();
+      setBountyOpen(false);
+    } catch (err) {
+      console.error(err);
+      setActionMessage((err as Error).message || "Unable to open bounty.");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
