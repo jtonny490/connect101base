@@ -307,3 +307,72 @@ export default function CreateDeal() {
               )}
             </div>
 
+            {/* Client link */}
+            <div className="space-y-2">
+              <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">
+                Client Funding Link
+              </p>
+              <input
+                type="text"
+                readOnly
+                value={clientLink}
+                className="w-full bg-zinc-100 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 py-3 text-amber-600 dark:text-amber-400 font-mono text-xs focus:outline-none"
+              />
+              <button
+                type="button"
+                onClick={() => copyText(clientLink)}
+                className="w-full py-2 bg-zinc-200 dark:bg-zinc-800 hover:bg-zinc-300 dark:hover:bg-zinc-700 text-zinc-900 dark:text-white text-sm font-medium rounded-xl transition"
+              >
+                Copy Client Link
+              </button>
+            </div>
+
+            {/* Freelancer link */}
+            <div className="space-y-2">
+              <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">
+                Freelancer Deal Link
+              </p>
+              <input
+                type="text"
+                readOnly
+                value={freelancerLink}
+                className="w-full bg-zinc-100 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 py-3 text-blue-600 dark:text-blue-400 font-mono text-xs focus:outline-none"
+              />
+              <button
+                type="button"
+                onClick={() => copyText(freelancerLink)}
+                className="w-full py-2 bg-zinc-200 dark:bg-zinc-800 hover:bg-zinc-300 dark:hover:bg-zinc-700 text-zinc-900 dark:text-white text-sm font-medium rounded-xl transition"
+              >
+                Copy Freelancer Deal Link
+              </button>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => router.push("/dashboard")}
+                className="flex-1 py-3 bg-zinc-200 dark:bg-zinc-800 hover:bg-zinc-300 dark:hover:bg-zinc-700 text-zinc-900 dark:text-white font-medium rounded-xl text-sm transition"
+              >
+                Dashboard
+              </button>
+              <button
+                type="button"
+                onClick={() => router.push(`/freelancer/${dealId}`)}
+                className="flex-1 py-3 bg-blue-500 hover:bg-blue-400 text-white font-bold rounded-xl text-sm transition"
+              >
+                Go to Freelancer View
+              </button>
+              <button
+                type="button"
+                onClick={() => router.push(`/client/deals/${dealId}`)}
+                className="flex-1 py-3 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold rounded-xl text-sm transition"
+              >
+                Client View
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
