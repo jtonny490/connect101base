@@ -259,3 +259,151 @@ export default function ClientDealPage() {
     }
   };
 
+  const handleSubmitBounty = async (bountyId: string) => {
+    if (!bountyPreviewUrl.trim()) {
+      setBountyMessage("Preview URL is required.");
+      return;
+    }
+    setBountyLoading(true);
+    setBountyMessage("Submitting…");
+    try {
+      const res = await fetch(
+        `${backendUrl}/api/bounties/${bountyId}/submissions`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            previewUrl: bountyPreviewUrl.trim(),
+            notes: bountyNotes.trim(),
+          }),
+        },
+      );
+      if (!res.ok) {
+        const body = await res.json();
+        throw new Error(body?.error || "Submission failed");
+      }
+      setBountyPreviewUrl("");
+      setBountyNotes("");
+      setBountyMessage("Submission sent.");
+      // refresh submissions
+      const bsRes = await fetch(
+        `${backendUrl}/api/bounties/${bountyId}/submissions`,
+      );
+      if (bsRes.ok) {
+        const bsBody = await bsRes.json();
+        setBountySubmissions(bsBody.submissions || []);
+      }
+    } catch (err) {
+      console.error(err);
+      setBountyMessage((err as Error).message || "Submission failed");
+    } finally {
+      setBountyLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-zinc-50 dark:bg-black flex items-center justify-center text-zinc-500">
+        Loading deal...
+      </div>
+    );
+  }
+
+  if (error || !data) {
+    return (
+      <div className="min-h-screen bg-zinc-50 dark:bg-black flex items-center justify-center text-red-500">
+        {error || "Deal not available."}
+      </div>
+    );
+  }
+
+  const latestPayment = data.payments[data.payments.length - 1];
+
+  return (
+    <div className="min-h-screen bg-zinc-50 dark:bg-black text-zinc-900 dark:text-zinc-50 py-12 px-6">
+      <div className="max-w-4xl mx-auto space-y-8">
+        <div className="rounded-3xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 p-8 shadow-sm">
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+            <div>
+              <p className="text-xs uppercase text-zinc-500 tracking-wider">
+                Client Escrow Page
+              </p>
+              <h1 className="text-3xl font-black mt-2">{data.deal.title}</h1>
+              <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
+                Origin: {data.deal.origin || "Direct"}
+              </p>
+            </div>
+            <div className="text-right">
+              <p className="text-2xl font-black text-amber-500">
+                {data.deal.amountSats.toLocaleString()} sats
+              </p>
+              <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                Status: {data.deal.status}
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 p-4 bg-zinc-50 dark:bg-zinc-900">
+              <p className="text-xs uppercase text-zinc-500 tracking-wider">
+                Payment Request
+              </p>
+              {latestPayment?.invoice ? (
+                <p className="mt-2 text-sm text-zinc-700 dark:text-zinc-300 break-all">
+                  {latestPayment.invoice}
+                </p>
+              ) : latestPayment?.instructions ? (
+                <p className="mt-2 text-sm text-zinc-700 dark:text-zinc-300 break-all">
+                  {latestPayment.instructions}
+                </p>
+              ) : (
+                <p className="mt-2 text-sm text-zinc-700 dark:text-zinc-300">
+                  No invoice created yet.
+                </p>
+              )}
+              <p className="mt-3 text-xs text-zinc-500 dark:text-zinc-400">
+                Provider: {latestPayment?.provider || "–"} • Payment status:{" "}
+                {latestPayment?.status || "–"}
+              </p>
+            </div>
+            <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 p-4 bg-zinc-50 dark:bg-zinc-900">
+              <p className="text-xs uppercase text-zinc-500 tracking-wider">
+                Actions
+              </p>
+              <div className="mt-4 space-y-3">
+                <button
+                  onClick={handleCheckPayment}
+                  disabled={paymentLoading || !latestPayment}
+                  className="w-full rounded-xl bg-blue-500 hover:bg-blue-400 py-3 text-sm font-bold text-white disabled:opacity-50"
+                >
+                  {paymentLoading
+                    ? "Checking payment…"
+                    : "Check payment status"}
+                </button>
+                {paymentMessage && (
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                    {paymentMessage}
+                  </p>
+                )}
+
+                {latestPayment?.status === "paid" && (
+                  <button
+                    onClick={handleReleaseFunds}
+                    disabled={actionLoading}
+                    className="w-full rounded-xl bg-emerald-500 hover:bg-emerald-400 py-3 text-sm font-bold text-white disabled:opacity-50"
+                  >
+                    {actionLoading
+                      ? "Releasing funds…"
+                      : "Release escrow funds"}
+                  </button>
+                )}
+
+                {actionMessage && (
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                    {actionMessage}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+
