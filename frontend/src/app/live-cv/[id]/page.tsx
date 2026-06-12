@@ -369,4 +369,113 @@ function LiveCVContent() {
     saveContracts([newContract, ...contracts]);
   };
 
-  
+  return (
+    <div className="min-h-screen bg-zinc-50 dark:bg-black text-zinc-900 dark:text-zinc-50 py-12 px-6">
+      <div className="max-w-4xl mx-auto space-y-8">
+
+        {/* Demo badge */}
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-zinc-200 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 text-zinc-500 dark:text-zinc-400 text-xs font-mono">
+          🧪 Hackathon Demo — Mock Lightning Invoice
+        </div>
+
+        {/* Profile Header */}
+        <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-6 sm:p-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 shadow-sm">
+          <div className="space-y-2">
+            <h1 className="text-3xl font-black tracking-tight">Juma Codes</h1>
+            <p className="text-amber-600 dark:text-amber-400 font-mono text-xs truncate max-w-xs sm:max-w-md">
+              ID: bc1qxy2kgdygjrsqtzq5qqsn0j2ea...
+            </p>
+            <p className="text-zinc-600 dark:text-zinc-300 text-sm max-w-xl pt-1">
+              Full-Stack Engineer based in Nairobi. Every entry below is anchored to a real Bitcoin payment — unfakeable by design.
+            </p>
+          </div>
+          <div className="bg-zinc-100 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 px-5 py-3 rounded-xl text-center min-w-[120px]">
+            <p className="text-[10px] uppercase font-semibold text-zinc-400 tracking-wider">Trust Score</p>
+            <p className="text-3xl font-black text-emerald-600 dark:text-emerald-400">100%</p>
+          </div>
+        </div>
+
+        {/* Active Escrow Box */}
+        {hasActiveDeal && escrowStatus !== 'released' && (
+          <div className="bg-white dark:bg-zinc-900 border border-amber-500/30 rounded-2xl p-6 shadow-md space-y-4">
+
+            <div className="flex flex-col md:flex-row items-start gap-6">
+              {invoiceData && escrowStatus === 'funding' && (
+                <div className="bg-white p-3 rounded-xl border border-zinc-200 shadow-sm flex items-center justify-center shrink-0">
+                  <QRCodeSVG value={invoiceData} size={160} />
+                </div>
+              )}
+              <div className="space-y-3 flex-1 w-full">
+                <div>
+                  <h3 className="text-lg font-bold text-amber-600 dark:text-amber-400 mb-1">
+                    ⚡ Escrow Lockbox
+                  </h3>
+                  <p className="text-sm text-zinc-600 dark:text-zinc-400 font-semibold mb-1">
+                    Project: {dealTitle}
+                  </p>
+                  <p className="text-xs text-zinc-500 font-mono">
+                    SIG_0x{dealPreimage.substring(0, 20)}...
+                  </p>
+                </div>
+
+                {/* Status label */}
+                <div className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                  {escrowStatus === 'funding' && 'Scan QR to fund escrow, then confirm funding for this demo'}
+                  {escrowStatus === 'waiting_delivery' && 'Funds secured in escrow — awaiting deliverable URL'}
+                  {escrowStatus === 'reviewing' && 'Deliverable ready — review and release funds'}
+                </div>
+
+                {/* STEP: Funding */}
+                {escrowStatus === 'funding' && (
+                  <button
+                    onClick={() => {
+                      saveDealStatus(dealPreimage, 'awaiting_deliverable');
+                      setEscrowStatus('waiting_delivery');
+                    }}
+                    className="px-5 py-2.5 bg-blue-500 hover:bg-blue-400 text-white font-bold text-xs rounded-xl transition"
+                  >
+                    Confirm Escrow Funded
+                  </button>
+                )}
+
+                {/* STEP: Waiting delivery — spinner */}
+                {escrowStatus === 'waiting_delivery' && (
+                  <div className="flex items-center gap-2 text-xs text-zinc-400 font-mono">
+                    <div className="w-3 h-3 rounded-full border-2 border-amber-500 border-t-transparent animate-spin" />
+                    Polling for freelancer submission...
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* STEP: Reviewing — sandbox + review form */}
+            {escrowStatus === 'reviewing' && dealData?.deliverableUrl && (
+              <div className="space-y-4 w-full">
+                {/* View Work button */}
+                {!showSandbox ? (
+                  <button
+                    onClick={() => setShowSandbox(true)}
+                    className="w-full py-3 bg-indigo-500 hover:bg-indigo-400 text-white font-bold rounded-xl transition"
+                  >
+                    🖥 View Delivered Work
+                  </button>
+                ) : (
+                  <div className="rounded-xl overflow-hidden border border-zinc-200 dark:border-zinc-700">
+                    <div className="px-4 py-2 bg-zinc-100 dark:bg-zinc-800 flex items-center justify-between">
+                      <p className="text-xs font-mono text-zinc-500 truncate">{dealData.deliverableUrl}</p>
+                      <button
+                        onClick={() => setShowSandbox(false)}
+                        className="text-xs text-zinc-400 hover:text-zinc-200 ml-4"
+                      >
+                        Close
+                      </button>
+                    </div>
+                    <iframe
+                      src={dealData.deliverableUrl}
+                      sandbox="allow-scripts allow-same-origin allow-forms"
+                      className="w-full h-[500px] border-0"
+                      title="Deliverable Sandbox"
+                    />
+                  </div>
+                )}
+
