@@ -242,4 +242,82 @@ export default function FreelancerDashboard() {
     }
   };
 
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-zinc-50 dark:bg-black flex items-center justify-center text-zinc-500">
+        Loading freelancer deal...
+      </div>
+    );
+  }
+
+  if (error && !dealData) {
+    return (
+      <div className="min-h-screen bg-zinc-50 dark:bg-black flex items-center justify-center text-red-500">
+        {error}
+      </div>
+    );
+  }
+
+  if (!dealData) {
+    return null;
+  }
+
+  return (
+    <div className="min-h-screen bg-zinc-50 dark:bg-black text-zinc-900 dark:text-zinc-50 py-12 px-6">
+      <div className="max-w-2xl mx-auto space-y-6">
+        <div className="space-y-1">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-600 dark:text-blue-400 text-xs font-mono">
+            Freelancer Workspace
+          </div>
+          <h1 className="text-2xl font-black tracking-tight">
+            {dealData.deal.title}
+          </h1>
+          {dealData.deal.payInSats && (
+            <p className="text-xs text-amber-400">
+              Note: This deal is set to pay the freelancer in sats (no local
+              conversion).
+            </p>
+          )}
+        </div>
+
+        <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-6 shadow-sm space-y-4">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-xs uppercase tracking-wider text-zinc-500">
+                Deal origin
+              </p>
+              <p className="font-semibold mt-1">
+                {dealData.deal.origin || "Direct"}
+              </p>
+            </div>
+            <div className="text-right">
+              <p className="text-2xl font-black text-amber-500">
+                {dealData.deal.amountSats.toLocaleString()} sats
+              </p>
+              <p className="text-xs text-zinc-500">
+                Status: {dealData.deal.status}
+              </p>
+            </div>
+          </div>
+          <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 p-4 bg-zinc-50 dark:bg-zinc-950">
+            <p className="text-xs uppercase tracking-wider text-zinc-500">
+              Milestone
+            </p>
+            {milestone ? (
+              <div className="mt-3 space-y-2">
+                <p className="font-semibold">{milestone.title}</p>
+                <p className="text-sm text-zinc-500">
+                  {milestone.amountSats.toLocaleString()} sats
+                </p>
+                <p className="text-xs uppercase tracking-wider text-zinc-500">
+                  Current status: {milestone.status}
+                </p>
+              </div>
+            ) : (
+              <p className="text-sm text-zinc-500">
+                No milestones are attached to this deal yet.
+              </p>
+            )}
+          </div>
+
  
