@@ -320,4 +320,90 @@ export default function FreelancerDashboard() {
             )}
           </div>
 
- 
+          <div className="space-y-3">
+            <h2 className="text-lg font-semibold">Submit Your Work</h2>
+            <p className="text-sm text-zinc-500 dark:text-zinc-400">
+              Upload a deliverable preview URL once the milestone is funded.
+            </p>
+            {submissionPending && (
+              <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800 space-y-3">
+                <div>
+                  A submission has already been sent and is awaiting client
+                  review.
+                </div>
+                {submissions.length > 0 && (
+                  <div className="rounded-2xl border border-amber-200 bg-amber-100 dark:bg-amber-950 p-3 text-sm text-amber-900 dark:text-amber-200">
+                    <p className="font-semibold text-xs uppercase tracking-wider text-zinc-600">
+                      Latest submission
+                    </p>
+                    <a
+                      href={submissions[0].previewUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="block text-blue-600 dark:text-blue-400 underline break-all mt-2"
+                    >
+                      {submissions[0].previewUrl}
+                    </a>
+                    <p className="text-xs text-zinc-500 mt-2">
+                      {submissions[0].notes || "No notes provided."}
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+            {approved && (
+              <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
+                This milestone has already been approved.
+              </div>
+            )}
+            <div className="space-y-3">
+              <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider">
+                Deliverable URL
+              </label>
+              <input
+                type="url"
+                value={previewUrl}
+                onChange={(e) => setPreviewUrl(e.target.value)}
+                placeholder="https://your-project.vercel.app"
+                disabled={
+                  !canSubmit || submitting || submissionPending || approved
+                }
+                className="w-full bg-zinc-100 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 py-3 text-sm placeholder-zinc-400 focus:outline-none focus:border-amber-500 disabled:opacity-50"
+              />
+              <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider">
+                Notes
+              </label>
+              <textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                rows={3}
+                disabled={
+                  !canSubmit || submitting || submissionPending || approved
+                }
+                className="w-full bg-zinc-100 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 py-3 text-sm placeholder-zinc-400 focus:outline-none focus:border-amber-500 disabled:opacity-50"
+              />
+              {error && <p className="text-xs text-red-500">{error}</p>}
+              <button
+                onClick={handleSubmit}
+                disabled={
+                  !canSubmit || submitting || submissionPending || approved
+                }
+                className="w-full py-3 rounded-xl bg-blue-500 hover:bg-blue-400 text-white font-bold transition disabled:opacity-50"
+              >
+                {submitting
+                  ? "Submitting..."
+                  : submissionPending
+                    ? "Submission Pending"
+                    : approved
+                      ? "Milestone Approved"
+                      : canSubmit
+                        ? "Submit Work"
+                        : "Waiting for Funding"}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
