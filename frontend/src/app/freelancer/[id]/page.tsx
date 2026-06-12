@@ -1,240 +1,227 @@
 'use client';
-import { useState, useSyncExternalStore } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
 
-interface Deal {
-  title: string;
-  amount: string;
-  origin: string;
-  preimage: string;
-  timestamp: string;
-  status: string;
-  deliverableUrl?: string;
-}
-
-const STATUS_COPY: Record<string, { label: string; className: string }> = {
-  awaiting_payment: {
-    label: 'Waiting for client to fund escrow',
-    className: 'bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-400',
-  },
-  escrow_funded: {
-    label: 'Funds secured in escrow — submit your Vercel preview link',
-    className: 'bg-blue-500/10 border-blue-500/20 text-blue-600 dark:text-blue-400',
-  },
-  awaiting_deliverable: {
-    label: 'Funds secured in escrow — awaiting deliverable URL',
-    className: 'bg-blue-500/10 border-blue-500/20 text-blue-600 dark:text-blue-400',
-  },
-  work_submitted: {
-    label: 'Deliverable submitted — waiting for client approval',
-    className: 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400',
-  },
-  done_deal: {
-    label: 'Done Deal — approved and funds released',
-    className: 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400',
-  },
-};
-
-const dealCache = new Map<string, { raw: string; value: Deal | null }>();
-
-function loadDeal(dealId: string): Deal | null {
-  if (typeof window === 'undefined') return null;
-
-  const saved = localStorage.getItem(`deal_${dealId}`);
-  if (!saved) return null;
-
-  const cached = dealCache.get(dealId);
-  if (cached?.raw === saved) return cached.value;
-
-  try {
-    const parsed = JSON.parse(saved) as Deal;
-    dealCache.set(dealId, { raw: saved, value: parsed });
-    return parsed;
-  } catch {
-    dealCache.set(dealId, { raw: saved, value: null });
-    return null;
-  }
-}
-
-function subscribeToDealUpdates(callback: () => void) {
-  window.addEventListener('storage', callback);
-  window.addEventListener('deallock-storage', callback);
-
-  return () => {
-    window.removeEventListener('storage', callback);
-    window.removeEventListener('deallock-storage', callback);
+interface DealResponse {
+  deal: {
+    id: string;
+    title: string;
+    origin?: string;
+    amountSats: number;
+    status: string;
   };
-}
-
-function saveDeal(dealId: string, deal: Deal) {
-  localStorage.setItem(`deal_${dealId}`, JSON.stringify(deal));
-  window.dispatchEvent(new Event('deallock-storage'));
+  milestones: Array<{
+    id: string;
+    title: string;
+    amountSats: number;
+    status: string;
+    position: number;
+  }>;
+  payments: Array<{
+    id: string;
+    provider: string;
+    status: string;
+    invoice?: string;
+    instructions?: string;
+    amountSats: number;
+    amountLocal: number;
+    localCurrency: string;
+  }>;
 }
 
 export default function FreelancerDashboard() {
   const params = useParams();
   const dealId = params.id as string;
-  const storedDeal = useSyncExternalStore(
-    subscribeToDealUpdates,
-    () => loadDeal(dealId),
-    () => null
-  );
+  const [dealData, setDealData] = useState<DealResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState('');
+  const [notes, setNotes] = useState('');
+  const [error, setError] = useState('');
+  const [submissions, setSubmissions] = useState<Array<{ id: string; milestoneId: string; previewUrl: string; notes?: string; status: string; createdAt: string; }>>([]);
+  const backendBase = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
 
-  const [deliverableUrl, setDeliverableUrl] = useState('');
-  const [urlError, setUrlError] = useState('');
-  const [editingSubmission, setEditingSubmission] = useState(false);
-  const deal = storedDeal;
-  const submitted = Boolean(deal?.deliverableUrl) && !editingSubmission;
-  const canSubmit = Boolean(deal && deal.status !== 'awaiting_payment' && deal.status !== 'done_deal');
-  const statusCopy = deal ? STATUS_COPY[deal.status] || STATUS_COPY.awaiting_payment : STATUS_COPY.awaiting_payment;
-  const visibleDeliverableUrl = editingSubmission
-    ? deliverableUrl
-    : deliverableUrl || deal?.deliverableUrl || '';
+  useEffect(() => {
+    if (!dealId) return;
+    setLoading(true);
+    fetch(`${backendBase}/api/deals/${dealId}`)
+      .then((res) => {
+        if (!res.ok) throw new Error('Deal not found');
+        return res.json();
+      })
+      .then((payload: DealResponse) => {
+        setDealData(payload);
+        setError('');
+        const nextMilestone = payload.milestones?.[0];
+        if (nextMilestone) {
+          fetch(`${backendBase}/api/milestones/${nextMilestone.id}/submissions`)
+            .then((res) => res.ok ? res.json() : null)
+            .then((body) => {
+              if (body?.submissions) {
+                setSubmissions(body.submissions);
+              } else {
+                setSubmissions([]);
+              }
+            })
+            .catch(() => setSubmissions([]));
+        } else {
+          setSubmissions([]);
+        }
+      })
+      .catch((err) => {
+        console.error(err);
+        setError('Unable to load deal.');
+      })
+      .finally(() => setLoading(false));
+  }, [dealId, backendBase]);
 
-  const handleSubmit = () => {
-    if (!deal) return;
-    if (!canSubmit) return;
-    const nextDeliverableUrl = visibleDeliverableUrl.trim();
-    if (!nextDeliverableUrl) {
-      setUrlError('Please enter a deliverable URL.');
+  const milestone = useMemo(() => dealData?.milestones?.[0] ?? null, [dealData]);
+  const canSubmit = Boolean(milestone && milestone.status === 'funded');
+  const submissionPending = Boolean(milestone && milestone.status === 'submitted');
+  const approved = milestone?.status === 'approved' || milestone?.status === 'released';
+
+  const handleSubmit = async () => {
+    if (!milestone) return;
+    if (!previewUrl.trim()) {
+      setError('Please enter a deliverable URL.');
       return;
     }
-    if (!nextDeliverableUrl.startsWith('https://')) {
-      setUrlError('URL must start with https://');
+    if (!previewUrl.trim().startsWith('https://')) {
+      setError('URL must start with https://');
       return;
     }
-    setUrlError('');
-    const updated: Deal = { ...deal, deliverableUrl: nextDeliverableUrl, status: 'work_submitted' };
-    saveDeal(dealId, updated);
-    setEditingSubmission(false);
+
+    setSubmitting(true);
+    setError('');
+
+    try {
+      const response = await fetch(`${backendBase}/api/milestones/${milestone.id}/submissions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ previewUrl: previewUrl.trim(), notes }),
+      });
+      if (!response.ok) {
+        const body = await response.json();
+        throw new Error(body?.error || 'Submission failed');
+      }
+      await fetch(`${backendBase}/api/deals/${dealId}`)
+        .then((res) => res.json())
+        .then((payload: DealResponse) => setDealData(payload));
+      setPreviewUrl('');
+      setNotes('');
+    } catch (err) {
+      console.error(err);
+      setError((err as Error).message || 'Submission failed.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  const handleResubmit = () => {
-    setDeliverableUrl(deal?.deliverableUrl || '');
-    setEditingSubmission(true);
-    setUrlError('');
-  };
-
-  if (!deal) {
+  if (loading) {
     return (
-      <div className="min-h-screen bg-zinc-50 dark:bg-black flex items-center justify-center">
-        <div className="text-center space-y-3">
-          <p className="text-zinc-500 text-sm">Deal not found.</p>
-          <p className="text-zinc-400 text-xs font-mono">ID: {dealId?.substring(0, 20)}...</p>
-        </div>
+      <div className="min-h-screen bg-zinc-50 dark:bg-black flex items-center justify-center text-zinc-500">
+        Loading freelancer deal...
       </div>
     );
+  }
+
+  if (error && !dealData) {
+    return (
+      <div className="min-h-screen bg-zinc-50 dark:bg-black flex items-center justify-center text-red-500">
+        {error}
+      </div>
+    );
+  }
+
+  if (!dealData) {
+    return null;
   }
 
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-black text-zinc-900 dark:text-zinc-50 py-12 px-6">
       <div className="max-w-2xl mx-auto space-y-6">
-
         <div className="space-y-1">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-600 dark:text-blue-400 text-xs font-mono">
-            Freelancer Dashboard
+            Freelancer Workspace
           </div>
-          <h1 className="text-2xl font-black tracking-tight">Your Active Deal</h1>
+          <h1 className="text-2xl font-black tracking-tight">{dealData.deal.title}</h1>
         </div>
 
-        <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-6 space-y-4 shadow-sm">
-          <div className="flex justify-between items-start">
+        <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-6 shadow-sm space-y-4">
+          <div className="flex items-center justify-between gap-4">
             <div>
-              <h2 className="text-lg font-bold">{deal.title}</h2>
-              <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
-                Platform: {deal.origin}
-              </p>
+              <p className="text-xs uppercase tracking-wider text-zinc-500">Deal origin</p>
+              <p className="font-semibold mt-1">{dealData.deal.origin || 'Direct'}</p>
             </div>
             <div className="text-right">
-              <p className="text-xl font-black text-amber-500">{parseInt(deal.amount).toLocaleString()}</p>
-              <p className="text-xs text-zinc-400">Sats in escrow</p>
+              <p className="text-2xl font-black text-amber-500">{dealData.deal.amountSats.toLocaleString()} sats</p>
+              <p className="text-xs text-zinc-500">Status: {dealData.deal.status}</p>
             </div>
           </div>
-          <div className="pt-3 border-t border-zinc-100 dark:border-zinc-800">
-            <p className="text-[11px] font-mono text-zinc-400">
-              Deal ID: SIG_0x{deal.preimage.substring(0, 24)}...
-            </p>
-          </div>
-        </div>
-
-        <div className={`rounded-xl px-5 py-3 text-sm font-medium border ${statusCopy.className}`}>
-          {statusCopy.label}
-        </div>
-
-        <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-6 space-y-4 shadow-sm">
-          <div>
-            <h3 className="font-bold text-lg mb-1">Submit Your Deliverable</h3>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400">
-              Deploy your work and paste the preview URL after escrow is funded. The client reviews it in a controlled sandbox preview.
-            </p>
-          </div>
-          <div className="space-y-2">
-            <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider">
-              Deliverable URL
-            </label>
-            <input
-              type="url"
-              placeholder="https://your-project.vercel.app"
-              value={visibleDeliverableUrl}
-              onChange={(e) => setDeliverableUrl(e.target.value)}
-              disabled={submitted || !canSubmit}
-              className="w-full bg-zinc-100 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 py-3 text-sm placeholder-zinc-400 focus:outline-none focus:border-amber-500 disabled:opacity-50"
-            />
-            <p className="text-[11px] text-zinc-400">
-              Works with: Vercel, Netlify, Figma view-only, Framer, Google Docs view-only, Vimeo, YouTube unlisted
-            </p>
-            {urlError && <p className="text-xs text-red-500">{urlError}</p>}
-          </div>
-
-          {!submitted ? (
-            <button
-              type="button"
-              onClick={handleSubmit}
-              disabled={!canSubmit}
-              className="w-full py-3 bg-blue-500 hover:bg-blue-400 text-white font-bold rounded-xl transition"
-            >
-              {deal.status === 'awaiting_payment' ? 'Waiting for Escrow Funding' : 'Submit Work for Review'}
-            </button>
-          ) : (
-            <div className="space-y-3">
-              <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 rounded-xl text-sm font-medium text-center">
-                {deal.status === 'done_deal' ? 'Done Deal — client approved and funds released' : 'Deliverable submitted — waiting for client approval'}
+          <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 p-4 bg-zinc-50 dark:bg-zinc-950">
+            <p className="text-xs uppercase tracking-wider text-zinc-500">Milestone</p>
+            {milestone ? (
+              <div className="mt-3 space-y-2">
+                <p className="font-semibold">{milestone.title}</p>
+                <p className="text-sm text-zinc-500">{milestone.amountSats.toLocaleString()} sats</p>
+                <p className="text-xs uppercase tracking-wider text-zinc-500">Current status: {milestone.status}</p>
               </div>
-              {deal.status !== 'done_deal' && (
-                <button
-                  type="button"
-                  onClick={handleResubmit}
-                  className="w-full py-2.5 bg-zinc-200 dark:bg-zinc-800 hover:bg-zinc-300 dark:hover:bg-zinc-700 text-zinc-900 dark:text-white text-sm font-medium rounded-xl transition"
-                >
-                  Update Deliverable URL
-                </button>
-              )}
-            </div>
-          )}
-        </div>
-
-        {submitted && visibleDeliverableUrl && (
-          <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl overflow-hidden shadow-sm">
-            <div className="px-5 py-3 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between">
-              <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Deliverable Preview</p>
-              <a
-                href={visibleDeliverableUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-xs text-blue-500 hover:text-blue-400 font-medium"
-              >
-                Open preview
-              </a>
-            </div>
-            <iframe
-              src={visibleDeliverableUrl}
-              sandbox="allow-scripts allow-same-origin allow-forms"
-              className="w-full h-[500px] border-0"
-              title="Deliverable Preview"
-            />
+            ) : (
+              <p className="text-sm text-zinc-500">No milestones are attached to this deal yet.</p>
+            )}
           </div>
-        )}
 
+          <div className="space-y-3">
+            <h2 className="text-lg font-semibold">Submit Your Work</h2>
+            <p className="text-sm text-zinc-500 dark:text-zinc-400">
+              Upload a deliverable preview URL once the milestone is funded.
+            </p>
+            {submissionPending && (
+              <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800 space-y-3">
+                <div>A submission has already been sent and is awaiting client review.</div>
+                {submissions.length > 0 && (
+                  <div className="rounded-2xl border border-amber-200 bg-amber-100 dark:bg-amber-950 p-3 text-sm text-amber-900 dark:text-amber-200">
+                    <p className="font-semibold text-xs uppercase tracking-wider text-zinc-600">Latest submission</p>
+                    <a href={submissions[0].previewUrl} target="_blank" rel="noreferrer" className="block text-blue-600 dark:text-blue-400 underline break-all mt-2">{submissions[0].previewUrl}</a>
+                    <p className="text-xs text-zinc-500 mt-2">{submissions[0].notes || 'No notes provided.'}</p>
+                  </div>
+                )}
+              </div>
+            )}
+            {approved && (
+              <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
+                This milestone has already been approved.
+              </div>
+            )}
+            <div className="space-y-3">
+              <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider">Deliverable URL</label>
+              <input
+                type="url"
+                value={previewUrl}
+                onChange={(e) => setPreviewUrl(e.target.value)}
+                placeholder="https://your-project.vercel.app"
+                disabled={!canSubmit || submitting || submissionPending || approved}
+                className="w-full bg-zinc-100 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 py-3 text-sm placeholder-zinc-400 focus:outline-none focus:border-amber-500 disabled:opacity-50"
+              />
+              <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider">Notes</label>
+              <textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                rows={3}
+                disabled={!canSubmit || submitting || submissionPending || approved}
+                className="w-full bg-zinc-100 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 py-3 text-sm placeholder-zinc-400 focus:outline-none focus:border-amber-500 disabled:opacity-50"
+              />
+              {error && <p className="text-xs text-red-500">{error}</p>}
+              <button
+                onClick={handleSubmit}
+                disabled={!canSubmit || submitting || submissionPending || approved}
+                className="w-full py-3 rounded-xl bg-blue-500 hover:bg-blue-400 text-white font-bold transition disabled:opacity-50"
+              >
+                {submitting ? 'Submitting...' : submissionPending ? 'Submission Pending' : canSubmit ? 'Submit Work' : 'Waiting for Funding'}
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

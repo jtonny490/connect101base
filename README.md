@@ -89,6 +89,31 @@ Bitcoin Layer:
 * Lightning Network
 * LNBits / Alby APIs
 
+## Project structure
+
+This repository is split into frontend and backend responsibilities.
+
+* `/frontend` — Next.js user interface, deal creation, client and freelancer workflows, Live CV pages, and initial API route prototypes.
+* `/backend` — new Express/TypeScript service for deal state, milestone workflows, invoice generation, payment status, dispute/bounty flows, and Live CV verification.
+* `/docs` — product plans, architecture, backend design, and frontend feature roadmap.
+
+Backend structure:
+
+* `/backend/package.json`
+* `/backend/tsconfig.json`
+* `/backend/src/index.ts` — main Express server and API routes
+* `/backend/src/store.ts` — in-memory state store, deal and payment helpers
+* `/backend/src/types.ts` — shared backend data models and statuses
+
+Frontend structure:
+
+* `/frontend/src/app/page.tsx` — marketing/home page
+* `/frontend/src/app/dashboard/page.tsx` — dashboard summary
+* `/frontend/src/app/create-deal/page.tsx` — deal creation flow
+* `/frontend/src/app/freelancer/[id]/page.tsx` — freelancer deal workspace
+* `/frontend/src/app/live-cv/[id]/page.tsx` — public Live CV experience
+* `/frontend/src/app/api/create-invoice/route.ts` — existing invoice API prototype
+
 ## Vision
 
 Every completed payment should become proof of work.

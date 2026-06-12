@@ -1,5 +1,5 @@
 'use client';
-import { useSearchParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import { useState, Suspense, useEffect, useRef, useSyncExternalStore } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 
@@ -230,6 +230,8 @@ function VerifiedBlock({ contract }: { contract: ContractItem }) {
 type EscrowStatus = 'funding' | 'waiting_delivery' | 'reviewing' | 'released';
 
 function LiveCVContent() {
+  const params = useParams();
+  const userId = params.id as string;
   const searchParams = useSearchParams();
   const hasActiveDeal = searchParams.get('deal');
   const invoiceData = searchParams.get('invoice');
@@ -242,6 +244,36 @@ function LiveCVContent() {
     loadContracts,
     () => SEED_CONTRACTS
   );
+  const [backendEntries, setBackendEntries] = useState<ContractItem[] | null>(null);
+
+  useEffect(() => {
+    if (!userId) return;
+    const backendBase = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
+    fetch(`${backendBase}/api/live-cv/${userId}`)
+      .then((res) => {
+        if (!res.ok) throw new Error('No live CV found');
+        return res.json();
+      })
+      .then((body) => {
+        if (!Array.isArray(body?.entries)) return;
+        const entries = body.entries.map((entry: any) => ({
+          title: String(entry.title || 'Untitled Deal'),
+          platform: String(entry.review ? entry.review : 'Verified Deal'),
+          amount: String(entry.amountSats || '0'),
+          date: new Date(entry.verifiedAt || Date.now()).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' }),
+          review: String(entry.review || ''),
+          preimage: String(entry.preimage || ''),
+          timestamp: Number(entry.verifiedAt || entry.timestamp || Date.now()),
+          isNew: true,
+        }));
+        if (entries.length > 0) {
+          setBackendEntries(entries);
+        }
+      })
+      .catch(() => {
+        setBackendEntries(null);
+      });
+  }, [userId]);
 
   const [escrowStatus, setEscrowStatus] = useState<EscrowStatus>('funding');
   const [clientReview, setClientReview] = useState('');
@@ -250,7 +282,7 @@ function LiveCVContent() {
   const [showSandbox, setShowSandbox] = useState(false);
   const contractsLoaded = useRef(false);
   const pollRef = useRef<NodeJS.Timeout | null>(null);
-  const contracts = storedContracts;
+  const contracts = backendEntries && backendEntries.length ? backendEntries : storedContracts;
 
   useEffect(() => {
     contractsLoaded.current = true;

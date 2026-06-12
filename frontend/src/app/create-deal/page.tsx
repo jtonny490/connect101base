@@ -24,9 +24,13 @@ export default function CreateDeal() {
   const [title, setTitle] = useState('');
   const [amount, setAmount] = useState('');
   const [origin, setOrigin] = useState('Direct');
+  const [provider, setProvider] = useState('lightning');
+  const [currency, setCurrency] = useState('KES');
 
-  const [preimage, setPreimage] = useState('');
-  const [timestamp, setTimestamp] = useState('');
+  const [paymentRequest, setPaymentRequest] = useState('');
+  const [paymentInstructions, setPaymentInstructions] = useState('');
+  const [paymentId, setPaymentId] = useState('');
+  const [dealId, setDealId] = useState('');
   const [clientLink, setClientLink] = useState('');
   const [freelancerLink, setFreelancerLink] = useState('');
   const [loading, setLoading] = useState(false);
@@ -38,42 +42,47 @@ export default function CreateDeal() {
     setLoading(true);
 
     try {
-      const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
-      const response = await fetch(`${baseUrl}/api/create-invoice`, {
+      const backendBase = process.env.NEXT_PUBLIC_BACKEND_URL ||
+        (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:4000');
+
+      const dealResponse = await fetch(`${backendBase}/api/deals`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount, memo: title }),
+        body: JSON.stringify({ title, origin, amountSats: Number(amount), description: '' }),
       });
 
-      const data = await response.json();
-      if (data.payment_request) {
-        const p = data.preimage;
-        const t = String(data.timestamp);
-        setPreimage(p);
-        setTimestamp(t);
+      const deal = await dealResponse.json();
+      if (!deal?.id) throw new Error('Failed to create deal');
 
-        const origin2 = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
+      const invoiceResponse = await fetch(`${backendBase}/api/deals/${deal.id}/invoice`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ provider, currency }),
+      });
 
-        const cLink = `${origin2}/live-cv/juma-codes?deal=active`
-          + `&invoice=${encodeURIComponent(data.payment_request)}`
-          + `&title=${encodeURIComponent(title)}`
-          + `&amount=${encodeURIComponent(amount)}`
-          + `&preimage=${encodeURIComponent(p)}`
-          + `&timestamp=${encodeURIComponent(t)}`;
+      const invoice = await invoiceResponse.json();
 
-        const fLink = `${origin2}/freelancer/${p}`;
-
-        setClientLink(cLink);
-        setFreelancerLink(fLink);
-
-        // Save deal to localStorage so freelancer page can read it
-        const deal = { title, amount, origin, preimage: p, timestamp: t, status: 'awaiting_payment' };
-        localStorage.setItem(`deal_${p}`, JSON.stringify(deal));
-
-        setDone(true);
+      if (!invoice?.id) throw new Error('Failed to generate invoice');
+      if (invoice?.invoice) {
+        setPaymentRequest(invoice.invoice);
       }
+      if (invoice?.instructions) {
+        setPaymentInstructions(invoice.instructions);
+      }
+
+      const originUrl = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
+      const clientUrl = `${originUrl}/client/deals/${deal.id}`;
+      const freelancerUrl = `${originUrl}/freelancer/${deal.id}`;
+
+      setPaymentRequest(invoice.invoice || '');
+      setPaymentId(invoice.id);
+      setDealId(deal.id);
+      setClientLink(clientUrl);
+      setFreelancerLink(freelancerUrl);
+      setDone(true);
+
     } catch (err) {
-      console.error('Error connecting to Bitcoin backend', err);
+      console.error('Error connecting to backend', err);
     } finally {
       setLoading(false);
     }
@@ -116,6 +125,25 @@ export default function CreateDeal() {
                 className="w-full bg-zinc-100 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 py-3 text-sm placeholder-zinc-400 focus:outline-none focus:border-amber-500"
               />
             </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">Payment Provider</label>
+                <select value={provider} onChange={(e) => setProvider(e.target.value)} className="w-full bg-zinc-100 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-amber-500">
+                  <option value="lightning">Lightning</option>
+                  <option value="mpesa">M-Pesa</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">Local Currency</label>
+                <select value={currency} onChange={(e) => setCurrency(e.target.value)} className="w-full bg-zinc-100 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-amber-500">
+                  <option value="KES">KES</option>
+                  <option value="UGX">UGX</option>
+                  <option value="NGN">NGN</option>
+                  <option value="USD">USD</option>
+                  <option value="EUR">EUR</option>
+                </select>
+              </div>
+            </div>
             <button
               type="button"
               onClick={handleCreate}
@@ -129,6 +157,22 @@ export default function CreateDeal() {
           <div className="space-y-6">
             <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 rounded-xl font-medium text-sm text-center">
               🎉 Deal Lockbox Created!
+            </div>
+            <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 p-4 text-sm">
+              <p className="font-semibold text-zinc-900 dark:text-zinc-100 mb-2">Payment details</p>
+              <p className="text-xs text-zinc-500 dark:text-zinc-400">Provider: {provider.toUpperCase()} • Currency: {currency}</p>
+              {paymentRequest && (
+                <div className="mt-3 text-xs text-zinc-600 dark:text-zinc-400 break-all">
+                  <p className="font-semibold">Invoice</p>
+                  <p>{paymentRequest}</p>
+                </div>
+              )}
+              {paymentInstructions && (
+                <div className="mt-3 text-xs text-zinc-600 dark:text-zinc-400 break-all">
+                  <p className="font-semibold">Instructions</p>
+                  <p>{paymentInstructions}</p>
+                </div>
+              )}
             </div>
 
             {/* Client link */}
@@ -167,14 +211,14 @@ export default function CreateDeal() {
               </button>
               <button
                 type="button"
-                onClick={() => router.push(`/freelancer/${preimage}`)}
+                onClick={() => router.push(`/freelancer/${dealId}`)}
                 className="flex-1 py-3 bg-blue-500 hover:bg-blue-400 text-white font-bold rounded-xl text-sm transition"
               >
                 Go to Freelancer View
               </button>
               <button
                 type="button"
-                onClick={() => router.push(`/live-cv/juma-codes?deal=active&invoice=&title=${encodeURIComponent(title)}&amount=${encodeURIComponent(amount)}&preimage=${encodeURIComponent(preimage)}&timestamp=${encodeURIComponent(timestamp)}`)}
+                onClick={() => router.push(`/client/deals/${dealId}`)}
                 className="flex-1 py-3 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold rounded-xl text-sm transition"
               >
                 Client View
