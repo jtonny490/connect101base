@@ -407,3 +407,269 @@ export default function ClientDealPage() {
             </div>
           </div>
 
+          <div className="mt-8 space-y-4">
+            <h2 className="text-xl font-semibold">Milestones</h2>
+            <div className="space-y-3">
+              {data.milestones.length === 0 ? (
+                <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                  No milestones added yet.
+                </p>
+              ) : (
+                data.milestones.map((milestone) => {
+                  const milestoneSubmissions = submissions.filter(
+                    (submission) => submission.milestoneId === milestone.id,
+                  );
+                  const latestSubmission = milestoneSubmissions[0] ?? null;
+                  const canApprove = milestone.status === "submitted";
+                  const canReject = milestone.status === "submitted";
+                  const canOpenBounty =
+                    milestone.status === "rejected" ||
+                    milestone.status === "disputed";
+                  return (
+                    <div
+                      key={milestone.id}
+                      className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 p-4"
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <p className="font-semibold">{milestone.title}</p>
+                          <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                            Position #{milestone.position}
+                          </p>
+                        </div>
+                        <span className="text-xs uppercase tracking-wider text-zinc-500">
+                          {milestone.status}
+                        </span>
+                      </div>
+                      <p className="mt-2 text-sm text-zinc-700 dark:text-zinc-300">
+                        {milestone.amountSats.toLocaleString()} sats
+                      </p>
+
+                      {milestone.status === "submitted" && latestSubmission && (
+                        <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+                          <p className="font-semibold">
+                            Submission ready for review
+                          </p>
+                          <div className="mt-3 space-y-2">
+                            <p className="text-xs text-zinc-600">
+                              Deliverable URL
+                            </p>
+                            <a
+                              href={latestSubmission.previewUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="block text-blue-600 dark:text-blue-400 underline break-all"
+                            >
+                              {latestSubmission.previewUrl}
+                            </a>
+                            <p className="text-xs text-zinc-600">Notes</p>
+                            <p className="text-sm text-zinc-700 dark:text-zinc-300">
+                              {latestSubmission.notes || "No additional notes."}
+                            </p>
+                            <button
+                              onClick={() =>
+                                setSandboxUrl(
+                                  sandboxUrl === latestSubmission.previewUrl
+                                    ? null
+                                    : latestSubmission.previewUrl,
+                                )
+                              }
+                              className="w-full rounded-xl bg-violet-500 hover:bg-violet-400 py-3 text-sm font-bold text-white"
+                            >
+                              {sandboxUrl === latestSubmission.previewUrl
+                                ? "✕ Close Sandbox"
+                                : "🔬 Open in Sandbox"}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {sandboxUrl && milestone.status === "submitted" && (
+                        <div className="mt-4 rounded-2xl border border-violet-200 bg-violet-50 p-4">
+                          <div className="flex items-center justify-between mb-2">
+                            <p className="font-semibold">
+                              🔬 Sandbox — Testing Freelancer Deliverable
+                            </p>
+                            <button
+                              onClick={() => setSandboxUrl(null)}
+                              className="text-white text-xs underline"
+                            >
+                              Close
+                            </button>
+                          </div>
+                          <div className="w-full h-[400px] rounded-xl overflow-hidden border">
+                            <iframe
+                              src={sandboxUrl}
+                              className="w-full h-full"
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      {(canApprove || canReject) && (
+                        <div className="mt-4 flex flex-col gap-3">
+                          <button
+                            onClick={() => handleApproveMilestone(milestone.id)}
+                            disabled={actionLoading}
+                            className="w-full rounded-xl bg-emerald-500 hover:bg-emerald-400 py-3 text-sm font-bold text-white disabled:opacity-50"
+                          >
+                            Approve milestone
+                          </button>
+                          <button
+                            onClick={() => handleRejectMilestone(milestone.id)}
+                            disabled={actionLoading}
+                            className="w-full rounded-xl border border-red-500 text-red-600 hover:bg-red-50 dark:hover:bg-red-950 py-3 text-sm font-semibold disabled:opacity-50"
+                          >
+                            Reject milestone
+                          </button>
+                        </div>
+                      )}
+
+                      {canOpenBounty && (
+                        <div className="mt-4 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 p-4">
+                          <div className="flex items-center justify-between gap-3">
+                            <div>
+                              <p className="text-sm font-semibold">
+                                Open a bounty for this milestone
+                              </p>
+                              <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                                Reassign unresolved work to a bounty task.
+                              </p>
+                            </div>
+                            <button
+                              onClick={() => setBountyOpen(!bountyOpen)}
+                              className="rounded-xl border border-zinc-300 dark:border-zinc-700 px-3 py-2 text-xs font-semibold"
+                            >
+                              {bountyOpen ? "Cancel" : "Open bounty"}
+                            </button>
+                          </div>
+                          {bountyOpen && (
+                            <div className="mt-4 space-y-3">
+                              <label className="block text-xs font-semibold uppercase text-zinc-500">
+                                Bounty title
+                              </label>
+                              <input
+                                value={bountyTitle}
+                                onChange={(e) => setBountyTitle(e.target.value)}
+                                className="w-full rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-100 dark:bg-zinc-950 px-4 py-3 text-sm"
+                              />
+                              <label className="block text-xs font-semibold uppercase text-zinc-500">
+                                Amount (Sats)
+                              </label>
+                              <input
+                                type="number"
+                                value={bountyAmount}
+                                onChange={(e) =>
+                                  setBountyAmount(e.target.value)
+                                }
+                                className="w-full rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-100 dark:bg-zinc-950 px-4 py-3 text-sm"
+                              />
+                              <label className="block text-xs font-semibold uppercase text-zinc-500">
+                                Description
+                              </label>
+                              <textarea
+                                value={bountyDescription}
+                                onChange={(e) =>
+                                  setBountyDescription(e.target.value)
+                                }
+                                className="w-full rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-100 dark:bg-zinc-950 px-4 py-3 text-sm"
+                                rows={3}
+                              />
+                              <button
+                                onClick={() => handleOpenBounty(milestone.id)}
+                                disabled={actionLoading}
+                                className="w-full rounded-xl bg-blue-500 hover:bg-blue-400 py-3 text-sm font-bold text-white disabled:opacity-50"
+                              >
+                                {actionLoading
+                                  ? "Opening bounty…"
+                                  : "Create bounty"}
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Bounty panel (if a bounty is open for this milestone) */}
+                      {bounty && (
+                        <div className="mt-4 rounded-2xl border border-indigo-200 bg-indigo-50 p-4">
+                          <p className="font-semibold">
+                            Open Bounty: {bounty.title}
+                          </p>
+                          <p className="text-xs text-zinc-500">
+                            {bounty.description}
+                          </p>
+                          <p className="text-sm mt-2">
+                            Amount: {bounty.amountSats.toLocaleString()} sats
+                          </p>
+
+                          <div className="mt-3">
+                            <p className="text-xs font-semibold">
+                              Submit a solution
+                            </p>
+                            <input
+                              value={bountyPreviewUrl}
+                              onChange={(e) =>
+                                setBountyPreviewUrl(e.target.value)
+                              }
+                              placeholder="https://your-fix.example"
+                              className="w-full bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 py-3 text-sm mt-2"
+                            />
+                            <textarea
+                              value={bountyNotes}
+                              onChange={(e) => setBountyNotes(e.target.value)}
+                              rows={3}
+                              placeholder="Notes"
+                              className="w-full bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 py-3 text-sm mt-2"
+                            />
+                            {bountyMessage && (
+                              <p className="text-xs text-zinc-500 mt-2">
+                                {bountyMessage}
+                              </p>
+                            )}
+                            <button
+                              onClick={() => handleSubmitBounty(bounty.id)}
+                              disabled={bountyLoading}
+                              className="w-full mt-2 py-3 bg-violet-500 text-white rounded-xl"
+                            >
+                              {bountyLoading
+                                ? "Submitting…"
+                                : "Submit bounty solution"}
+                            </button>
+                          </div>
+
+                          {bountySubmissions.length > 0 && (
+                            <div className="mt-4">
+                              <p className="text-xs font-semibold">
+                                Submissions
+                              </p>
+                              {bountySubmissions.map((s) => (
+                                <div
+                                  key={s.id}
+                                  className="mt-2 p-2 border rounded"
+                                >
+                                  <a
+                                    href={s.previewUrl}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="text-blue-600"
+                                  >
+                                    {s.previewUrl}
+                                  </a>
+                                  <p className="text-xs">{s.notes}</p>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
